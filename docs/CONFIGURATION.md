@@ -1,7 +1,7 @@
 # Configuration
 
 All build-time options live under
-**Smart Keyboard** in `idf.py menuconfig`.
+**SMART KEYBOARD** in `idf.py menuconfig`.
 
 ## Board selection
 

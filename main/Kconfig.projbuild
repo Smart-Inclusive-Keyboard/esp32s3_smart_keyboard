@@ -1,4 +1,4 @@
-menu "Smart Keyboard"
+menu "SMART KEYBOARD"
 
 #
 # Hardware board selection. Each board entry "select"s capability
@@ -235,4 +235,4 @@ config AUDIO_VOLUME
 
 endmenu  # Audio / Narrator
 
-endmenu  # Smart Keyboard
+endmenu  # SMART KEYBOARD

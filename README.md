@@ -20,7 +20,7 @@ Additional boards plug in via Kconfig.
 ```sh
 . $IDF_PATH/export.sh
 idf.py set-target esp32s3
-idf.py menuconfig          # Smart Keyboard ->  pick board, layout, theme
+idf.py menuconfig          # SMART KEYBOARD ->  pick board, layout, theme
 idf.py build flash monitor
 ```
 
