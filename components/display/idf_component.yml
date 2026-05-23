@@ -1,0 +1,14 @@
+## Managed-component dependencies for the display.
+##
+## The AXS15231B QSPI panel controller (Waveshare ESP32-S3-Touch-LCD-3.49,
+## Guition JC3248W535) is supported by Espressif's
+## `esp_lcd_axs15231b` managed component, which provides the panel
+## handle that drops in behind the stock esp_lcd_panel_ops vtable.
+## See https://components.espressif.com/components/espressif/esp_lcd_axs15231b
+dependencies:
+  idf:
+    version: ">=5.3.0"
+  espressif/esp_lcd_axs15231b:
+    version: "^1.0.0"
+    rules:
+      - if: "target in [esp32s3]"

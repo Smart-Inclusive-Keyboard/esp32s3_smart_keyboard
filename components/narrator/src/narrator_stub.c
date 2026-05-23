@@ -1,0 +1,6 @@
+/* Narrator no-op stub for boards without PSRAM + speaker, or when
+ * CONFIG_NARRATOR_ENABLE is unset. */
+#include "narrator.h"
+void narrator_init(void)                          { }
+void narrator_speak_selection(void)               { }
+void narrator_speak_hid(unsigned hid_usage)       { (void)hid_usage; }

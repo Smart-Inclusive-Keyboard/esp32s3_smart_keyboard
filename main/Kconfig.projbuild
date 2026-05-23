@@ -1,0 +1,238 @@
+menu "SMART KEYBOARD"
+
+#
+# Hardware board selection. Each board entry "select"s capability
+# symbols that other components key off of. To add a new board,
+# duplicate one of the entries below, add a matching pin/init file
+# under components/board/src/board_<name>.c, and reference it from
+# components/board/CMakeLists.txt.
+#
+
+choice SK_BOARD
+    prompt "Target board"
+    default SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
+    help
+        Selects the hardware board the firmware is built for.
+        The board choice determines pin assignments, display
+        controller, presence of PSRAM / speaker / battery, and
+        which capability flags are exposed to the rest of the
+        firmware.
+
+config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
+    bool "Waveshare ESP32-S3-Touch-LCD-3.49"
+    depends on IDF_TARGET_ESP32S3
+    select BOARD_HAS_PSRAM
+    select BOARD_HAS_DISPLAY
+    select BOARD_HAS_DISPLAY_AXS15231B
+    help
+        Waveshare 3.49" 172x640 IPS panel with AXS15231B QSPI
+        controller on ESP32-S3 with 16 MB flash + 8 MB octal
+        PSRAM. No on-board speaker; wire an external I2S DAC to
+        enable narration.
+
+config SK_BOARD_GENERIC_ESP32S3
+    bool "Generic ESP32-S3 (no display configured)"
+    depends on IDF_TARGET_ESP32S3
+    help
+        Placeholder for a custom ESP32-S3 board. Pin definitions
+        live in components/board/src/board_generic_s3.c -- edit
+        that file to match your wiring.
+
+config SK_BOARD_GENERIC_ESP32
+    bool "Generic ESP32 (no display configured)"
+    depends on IDF_TARGET_ESP32
+    help
+        Placeholder for a custom classic-ESP32 board.
+
+endchoice
+
+#
+# Capability flags. Each board "select"s the subset it has; the rest
+# of the firmware reads them via #ifdef CONFIG_BOARD_HAS_xxx.
+#
+
+config BOARD_HAS_PSRAM
+    bool
+    default n
+
+config BOARD_HAS_DISPLAY
+    bool
+    default n
+
+config BOARD_HAS_DISPLAY_AXS15231B
+    bool
+    default n
+
+config BOARD_HAS_SPEAKER
+    bool
+    default n
+
+config BOARD_HAS_BATTERY
+    bool
+    default n
+
+#
+# I2C gamepad pins / addressing.
+#
+
+menu "I2C gamepad"
+
+config SK_GAMEPAD_I2C_PORT
+    int "I2C port number"
+    range 0 1
+    default 0
+
+config SK_GAMEPAD_I2C_SDA_GPIO
+    int "I2C SDA GPIO"
+    default 11
+    help
+        I2C SDA pin used to talk to the external gamepad
+        controller. Default is the breakout header on the
+        Waveshare ESP32-S3-Touch-LCD-3.49.
+
+config SK_GAMEPAD_I2C_SCL_GPIO
+    int "I2C SCL GPIO"
+    default 10
+
+config SK_GAMEPAD_I2C_FREQ_HZ
+    int "I2C clock (Hz)"
+    default 100000
+    range 50000 400000
+
+config SK_GAMEPAD_I2C_ADDR
+    hex "Gamepad 7-bit I2C address"
+    default 0x52
+    range 0x08 0x77
+    help
+        7-bit slave address of the I2C gamepad. The default 0x52
+        matches a Wii-Nunchuk-style controller; change to suit
+        your controller.
+
+config SK_GAMEPAD_POLL_MS
+    int "Poll period (ms)"
+    default 16
+    range 5 100
+    help
+        Interval between gamepad HID reads. ~60 Hz (16 ms) is a
+        good default for responsive on-screen navigation.
+
+config SK_GAMEPAD_AXIS_DEADZONE
+    int "Axis dead-zone (signed, 0..127)"
+    default 40
+    range 0 127
+
+endmenu  # I2C gamepad
+
+#
+# BLE HID device identity.
+#
+
+menu "BLE HID"
+
+config SK_BLE_DEVICE_NAME
+    string "Advertised device name"
+    default "SmartKeyboard"
+
+config SK_BLE_MANUFACTURER
+    string "Manufacturer string"
+    default "clackups"
+
+config SK_BLE_BOND_ON_PAIR
+    bool "Persist bonds to NVS"
+    default y
+
+endmenu  # BLE HID
+
+#
+# Keyboard layout.
+#
+
+choice SK_LAYOUT_DEFAULT
+    prompt "Default keyboard layout"
+    default SK_LAYOUT_US
+    help
+        Compile-time default layout. The runtime layout can be
+        switched via the on-screen menu and is persisted in NVS.
+
+config SK_LAYOUT_US
+    bool "US English (default)"
+
+config SK_LAYOUT_DE
+    bool "German (DE) - layout stub"
+
+config SK_LAYOUT_FR
+    bool "French (FR) - layout stub"
+
+config SK_LAYOUT_UA
+    bool "Ukrainian (UA) - layout stub"
+
+endchoice
+
+#
+# Color theme.
+#
+
+choice SK_THEME_DEFAULT
+    prompt "Default color theme"
+    default SK_THEME_GREEN_ON_BLACK
+    help
+        Compile-time default theme. May be overridden at runtime
+        via the on-screen menu (persisted in NVS).
+
+config SK_THEME_GREEN_ON_BLACK
+    bool "Green on black (default)"
+
+config SK_THEME_DARKGREEN_ON_BLACK
+    bool "Dark green on black"
+
+config SK_THEME_WHITE_ON_BLACK
+    bool "White on black"
+
+config SK_THEME_BLACK_ON_WHITE
+    bool "Black on white"
+
+config SK_THEME_DEFAULT_PALETTE
+    bool "Plain default palette"
+
+endchoice
+
+#
+# Audio / narrator. The whole menu is hidden unless the board has
+# PSRAM and a speaker, because narration requires both.
+#
+
+menu "Audio / Narrator"
+    depends on BOARD_HAS_PSRAM && BOARD_HAS_SPEAKER
+
+config NARRATOR_ENABLE
+    bool "Speak letter names as the user navigates"
+    default y
+
+config AUDIO_I2S_PORT
+    int "I2S port number"
+    default 0
+    range 0 1
+    help
+        Sound output is always over I2S (no internal-DAC / PWM
+        fallback). Set the port number that matches your board.
+
+config AUDIO_I2S_BCLK_GPIO
+    int "I2S BCLK (bit clock) GPIO"
+    default 5
+
+config AUDIO_I2S_LRCK_GPIO
+    int "I2S LRCK (word select) GPIO"
+    default 6
+
+config AUDIO_I2S_DOUT_GPIO
+    int "I2S DOUT (serial data) GPIO"
+    default 7
+
+config AUDIO_VOLUME
+    int "Default narrator volume (%)"
+    default 70
+    range 0 100
+
+endmenu  # Audio / Narrator
+
+endmenu  # SMART KEYBOARD
