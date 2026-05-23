@@ -13,12 +13,19 @@
  *   (SDA=11, SCL=10 -- adjust in menuconfig if you wire the
  *   gamepad to a different header).
  *
- *   I2S to external DAC (user-wired):
- *   BCLK, LRCK, DOUT come from the Kconfig values.
+ *   On-board audio (ES8311 codec + amplifier + speaker):
+ *       MCLK = 7, BCLK = 15, LRCK (WS) = 46, DOUT = 45
+ *   The pins are wired on the PCB and cannot be changed, so they
+ *   are hard-coded here rather than read from Kconfig. The
+ *   AUDIO_I2S_* Kconfig entries are ignored for this board.
  *
- * No on-board speaker, so CONFIG_BOARD_HAS_SPEAKER is not "select"ed
- * by this board. Users with an external I2S DAC can enable it in
- * menuconfig under Smart Keyboard -> Audio / Narrator.
+ *   NOTE: The ES8311 is an I2C-controlled codec. The current
+ *   audio component drives the I2S TX path only; making the
+ *   speaker actually emit sound also requires bringing up the
+ *   ES8311 over I2C (codec register init). That codec init is
+ *   intentionally out of scope of this board file -- this entry
+ *   just exposes the correct pins and selects BOARD_HAS_SPEAKER
+ *   so the audio/narrator components are compiled in.
  *
  * References:
  *   https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.49
@@ -52,14 +59,12 @@ const board_t g_board = {
     .i2c_scl     = CONFIG_SK_GAMEPAD_I2C_SCL_GPIO,
     .i2c_freq_hz = CONFIG_SK_GAMEPAD_I2C_FREQ_HZ,
     .i2s = {
-#if CONFIG_BOARD_HAS_SPEAKER
-        .bclk = CONFIG_AUDIO_I2S_BCLK_GPIO,
-        .lrck = CONFIG_AUDIO_I2S_LRCK_GPIO,
-        .dout = CONFIG_AUDIO_I2S_DOUT_GPIO,
-        .port = CONFIG_AUDIO_I2S_PORT,
-#else
-        .bclk = -1, .lrck = -1, .dout = -1, .port = 0,
-#endif
+        /* On-board ES8311 codec wiring -- fixed by the PCB. */
+        .mclk = 7,
+        .bclk = 15,
+        .lrck = 46,
+        .dout = 45,
+        .port = 0,
     },
     .battery_adc_channel = -1,
 };

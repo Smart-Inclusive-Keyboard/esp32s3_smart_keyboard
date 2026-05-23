@@ -14,13 +14,15 @@
 | LCD BL             | 8          | active LOW, LEDC PWM @ 50 kHz      |
 | I2C gamepad SDA    | 11 (Kconfig)| External header                   |
 | I2C gamepad SCL    | 10 (Kconfig)| External header                   |
-| I2S BCLK / LRCK / DOUT | 5 / 6 / 7 (Kconfig) | external DAC (optional)  |
+| I2S MCLK / BCLK / LRCK / DOUT | 7 / 15 / 46 / 45 | on-board ES8311 codec + speaker |
 
 - 16 MB flash (QIO, 80 MHz)
 - 8 MB octal PSRAM (mode O, 80 MHz)
-- No on-board speaker. Wire an external I2S DAC (e.g.
-  PCM5102A, MAX98357A) and enable
-  `BOARD_HAS_SPEAKER` manually in menuconfig to get narration.
+- On-board I2S speaker via ES8311 codec. The board automatically
+  selects `BOARD_HAS_SPEAKER`, so the narrator is compiled in by
+  default. The pins above are hard-coded in
+  `components/board/src/board_waveshare_esp32s3_touch_lcd_349.c`
+  and override the generic `AUDIO_I2S_*` Kconfig defaults.
 
 ### Generic ESP32-S3 / Generic ESP32
 

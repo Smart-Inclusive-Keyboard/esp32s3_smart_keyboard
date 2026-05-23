@@ -199,7 +199,7 @@ int audio_init(void)
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(
                         I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
-            .mclk = I2S_GPIO_UNUSED,
+            .mclk = (b->i2s.mclk < 0) ? I2S_GPIO_UNUSED : b->i2s.mclk,
             .bclk = b->i2s.bclk,
             .ws   = b->i2s.lrck,
             .dout = b->i2s.dout,
@@ -212,8 +212,8 @@ int audio_init(void)
 
     xTaskCreatePinnedToCore(worker, "audio", 4096, NULL, 6, NULL, 1);
 
-    ESP_LOGI(TAG, "I2S up on port %d (BCLK=%d LRCK=%d DOUT=%d)",
-             b->i2s.port, b->i2s.bclk, b->i2s.lrck, b->i2s.dout);
+    ESP_LOGI(TAG, "I2S up on port %d (MCLK=%d BCLK=%d LRCK=%d DOUT=%d)",
+             b->i2s.port, b->i2s.mclk, b->i2s.bclk, b->i2s.lrck, b->i2s.dout);
     return 0;
 }
 

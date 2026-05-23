@@ -20,7 +20,7 @@ const board_t g_board = {
     .i2c_sda     = CONFIG_SK_GAMEPAD_I2C_SDA_GPIO,
     .i2c_scl     = CONFIG_SK_GAMEPAD_I2C_SCL_GPIO,
     .i2c_freq_hz = CONFIG_SK_GAMEPAD_I2C_FREQ_HZ,
-    .i2s = { .bclk = -1, .lrck = -1, .dout = -1, .port = 0 },
+    .i2s = { .bclk = -1, .lrck = -1, .dout = -1, .mclk = -1, .port = 0 },
     .battery_adc_channel = -1,
 };
 
