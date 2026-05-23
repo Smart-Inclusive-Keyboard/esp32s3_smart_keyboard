@@ -13,6 +13,7 @@
  * so behaviour (incl. shifted glyphs) matches.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
