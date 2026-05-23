@@ -455,9 +455,12 @@ void ble_hid_release_all(void)
 
 void ble_hid_send_mouse(int dx, int dy, uint8_t buttons, int wheel)
 {
-    if (dx < -127) dx = -127; if (dx > 127) dx = 127;
-    if (dy < -127) dy = -127; if (dy > 127) dy = 127;
-    if (wheel < -127) wheel = -127; if (wheel > 127) wheel = 127;
+    if (dx < -127) dx = -127;
+    if (dx > 127) dx = 127;
+    if (dy < -127) dy = -127;
+    if (dy > 127) dy = 127;
+    if (wheel < -127) wheel = -127;
+    if (wheel > 127) wheel = 127;
     s_mouse_report[0] = (uint8_t)(buttons & 0x07);
     s_mouse_report[1] = (uint8_t)(int8_t)dx;
     s_mouse_report[2] = (uint8_t)(int8_t)dy;
