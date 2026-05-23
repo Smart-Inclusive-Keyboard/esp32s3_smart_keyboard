@@ -44,13 +44,21 @@ static const char *TAG = "narrator";
  *
  * If you maintain a different vocabulary, edit S_CLIPS below
  * and drop the matching extern declarations.
+ *
+ * NOTE: these declarations are deliberately *not* `weak`.
+ * EMBED_FILES emits each clip as its own object inside
+ * libnarrator.a; the final link only pulls an archive member
+ * in if it satisfies a strong undefined reference. With weak
+ * references the embed objects were silently dropped from the
+ * image (~half a megabyte of WAV data missing, firmware grew
+ * by only ~20 KB with the narrator enabled). Keeping the refs
+ * strong both fixes the size delta and turns missing assets
+ * back into a hard link error, as intended.
  */
 
 #define WAV_SYMS(name)                                                \
-    extern const uint8_t _binary_##name##_wav_start[]                 \
-        __attribute__((weak));                                        \
-    extern const uint8_t _binary_##name##_wav_end[]                   \
-        __attribute__((weak));
+    extern const uint8_t _binary_##name##_wav_start[];                \
+    extern const uint8_t _binary_##name##_wav_end[];
 
 WAV_SYMS(a) WAV_SYMS(b) WAV_SYMS(c) WAV_SYMS(d) WAV_SYMS(e)
 WAV_SYMS(f) WAV_SYMS(g) WAV_SYMS(h) WAV_SYMS(i) WAV_SYMS(j)
