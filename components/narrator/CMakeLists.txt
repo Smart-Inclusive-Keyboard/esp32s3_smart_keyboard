@@ -6,10 +6,17 @@ if(CONFIG_BOARD_HAS_PSRAM AND CONFIG_BOARD_HAS_SPEAKER AND CONFIG_NARRATOR_ENABL
     # full filename list.
     file(GLOB _wavs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "wav/*.wav")
     if(_wavs)
+        # NOTE: use REQUIRES (not PRIV_REQUIRES) so the audio and
+        # kb_layout component INCLUDE_DIRS are guaranteed to be on
+        # the compile line for narrator.c during the early
+        # expansion phase. With EMBED_FILES in play, PRIV_REQUIRES
+        # propagation has been observed to lose audio.h visibility
+        # on some IDF versions (fatal error: audio.h: No such
+        # file or directory).
         idf_component_register(
             SRCS "src/narrator.c"
             INCLUDE_DIRS "include"
-            PRIV_REQUIRES audio kb_layout
+            REQUIRES audio kb_layout
             EMBED_FILES ${_wavs}
         )
     else()
