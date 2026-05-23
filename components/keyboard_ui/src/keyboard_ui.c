@@ -264,8 +264,10 @@ bool keyboard_ui_move(int drow, int dcol)
     const kb_layout_t *l = kb_layout_active();
     int nr = s_st.sel_row + drow;
     int nc = s_st.sel_col + dcol;
-    if (nr < 0) nr = 0; if (nr >= l->rows) nr = l->rows - 1;
-    if (nc < 0) nc = 0; if (nc >= l->cols) nc = l->cols - 1;
+    if (nr < 0) nr = 0;
+    if (nr >= l->rows) nr = l->rows - 1;
+    if (nc < 0) nc = 0;
+    if (nc >= l->cols) nc = l->cols - 1;
     if (nr == s_st.sel_row && nc == s_st.sel_col) return false;
     s_st.sel_row = nr;
     s_st.sel_col = nc;
