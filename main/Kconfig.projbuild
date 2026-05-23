@@ -24,11 +24,13 @@ config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
     select BOARD_HAS_PSRAM
     select BOARD_HAS_DISPLAY
     select BOARD_HAS_DISPLAY_AXS15231B
+    select BOARD_HAS_SPEAKER
     help
         Waveshare 3.49" 172x640 IPS panel with AXS15231B QSPI
         controller on ESP32-S3 with 16 MB flash + 8 MB octal
-        PSRAM. No on-board speaker; wire an external I2S DAC to
-        enable narration.
+        PSRAM. Includes an on-board I2S speaker (ES8311 codec
+        on MCLK=7, BCLK=15, LRCK=46, DOUT=45) which is wired up
+        automatically for the narrator.
 
 config SK_BOARD_GENERIC_ESP32S3
     bool "Generic ESP32-S3 (no display configured)"

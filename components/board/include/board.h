@@ -58,6 +58,10 @@ typedef struct {
     int bclk;
     int lrck;
     int dout;
+    int mclk;          /* master clock out, -1 when unused (codecs
+                        * like the ES8311 on the Waveshare 3.49
+                        * board need it; bare DACs like MAX98357A
+                        * do not)                                  */
     int port;          /* I2S port number */
 } board_i2s_t;
 
