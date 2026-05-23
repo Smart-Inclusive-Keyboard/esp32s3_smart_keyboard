@@ -54,10 +54,26 @@ const board_t g_board = {
         .height = 172,
         .swap_xy = false,
     },
+#if CONFIG_SK_GAMEPAD_TRANSPORT_I2C
     .i2c_port    = CONFIG_SK_GAMEPAD_I2C_PORT,
     .i2c_sda     = CONFIG_SK_GAMEPAD_I2C_SDA_GPIO,
     .i2c_scl     = CONFIG_SK_GAMEPAD_I2C_SCL_GPIO,
     .i2c_freq_hz = CONFIG_SK_GAMEPAD_I2C_FREQ_HZ,
+#else
+    .i2c_port = 0, .i2c_sda = -1, .i2c_scl = -1, .i2c_freq_hz = 0,
+#endif
+#if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
+    .spi_host    = CONFIG_SK_GAMEPAD_SPI_HOST,
+    .spi_sclk    = CONFIG_SK_GAMEPAD_SPI_SCLK_GPIO,
+    .spi_mosi    = CONFIG_SK_GAMEPAD_SPI_MOSI_GPIO,
+    .spi_miso    = CONFIG_SK_GAMEPAD_SPI_MISO_GPIO,
+    .spi_cs      = CONFIG_SK_GAMEPAD_SPI_CS_GPIO,
+    .spi_freq_hz = CONFIG_SK_GAMEPAD_SPI_FREQ_HZ,
+    .spi_mode    = CONFIG_SK_GAMEPAD_SPI_MODE,
+#else
+    .spi_host = -1, .spi_sclk = -1, .spi_mosi = -1, .spi_miso = -1,
+    .spi_cs   = -1, .spi_freq_hz = 0, .spi_mode = 0,
+#endif
     .i2s = {
         /* On-board ES8311 codec wiring -- fixed by the PCB. */
         .mclk = 7,

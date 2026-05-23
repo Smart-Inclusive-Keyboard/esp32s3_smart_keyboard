@@ -74,10 +74,44 @@ config BOARD_HAS_BATTERY
     default n
 
 #
-# I2C gamepad pins / addressing.
+# External gamepad. Pick the bus the gamepad is wired to and
+# configure its pins / clock. The polling cadence and axis
+# dead-zone are common to all transports.
 #
 
+menu "Gamepad"
+
+choice SK_GAMEPAD_TRANSPORT
+    prompt "Gamepad transport"
+    default SK_GAMEPAD_TRANSPORT_I2C
+    help
+        Selects the bus used to talk to the external gamepad.
+        The firmware is always the bus master; the gamepad is
+        always the slave / peripheral.
+
+config SK_GAMEPAD_TRANSPORT_I2C
+    bool "I2C (device is master)"
+
+config SK_GAMEPAD_TRANSPORT_SPI
+    bool "SPI (device is host, gamepad is slave)"
+
+endchoice
+
+config SK_GAMEPAD_POLL_MS
+    int "Poll period (ms)"
+    default 16
+    range 5 100
+    help
+        Interval between gamepad HID reads. ~60 Hz (16 ms) is a
+        good default for responsive on-screen navigation.
+
+config SK_GAMEPAD_AXIS_DEADZONE
+    int "Axis dead-zone (signed, 0..127)"
+    default 40
+    range 0 127
+
 menu "I2C gamepad"
+    depends on SK_GAMEPAD_TRANSPORT_I2C
 
 config SK_GAMEPAD_I2C_PORT
     int "I2C port number"
@@ -110,20 +144,71 @@ config SK_GAMEPAD_I2C_ADDR
         matches a Wii-Nunchuk-style controller; change to suit
         your controller.
 
-config SK_GAMEPAD_POLL_MS
-    int "Poll period (ms)"
-    default 16
-    range 5 100
-    help
-        Interval between gamepad HID reads. ~60 Hz (16 ms) is a
-        good default for responsive on-screen navigation.
-
-config SK_GAMEPAD_AXIS_DEADZONE
-    int "Axis dead-zone (signed, 0..127)"
-    default 40
-    range 0 127
-
 endmenu  # I2C gamepad
+
+menu "SPI gamepad"
+    depends on SK_GAMEPAD_TRANSPORT_SPI
+
+config SK_GAMEPAD_SPI_HOST
+    int "SPI host (peripheral index)"
+    default 2
+    range 1 3
+    help
+        SPI host the device drives as a master. On the ESP32-S3
+        SPI2 (HSPI, host 2) and SPI3 (host 3) are general-purpose;
+        SPI1 is reserved for flash on most targets. The display
+        component on the Waveshare board owns SPI2, so prefer
+        host 3 there.
+
+config SK_GAMEPAD_SPI_SCLK_GPIO
+    int "SPI SCLK GPIO"
+    default 12
+    help
+        Serial clock pin driven by the device (master) toward the
+        gamepad (slave).
+
+config SK_GAMEPAD_SPI_MOSI_GPIO
+    int "SPI MOSI GPIO"
+    default 11
+    help
+        Master-out / slave-in. Used to send a dummy / command
+        byte; the parser ignores the response if the gamepad
+        is read-only.
+
+config SK_GAMEPAD_SPI_MISO_GPIO
+    int "SPI MISO GPIO"
+    default 13
+    help
+        Master-in / slave-out. The 4-byte gamepad report is
+        clocked back to the device on this line.
+
+config SK_GAMEPAD_SPI_CS_GPIO
+    int "SPI CS (chip-select) GPIO"
+    default 10
+    help
+        Chip-select pin asserted by the device (master) for the
+        duration of each transaction.
+
+config SK_GAMEPAD_SPI_FREQ_HZ
+    int "SPI clock (Hz)"
+    default 1000000
+    range 100000 10000000
+    help
+        SPI clock frequency. 1 MHz is a conservative default that
+        works over loose jumpers; raise it once the wiring is
+        stable.
+
+config SK_GAMEPAD_SPI_MODE
+    int "SPI mode (0..3)"
+    default 0
+    range 0 3
+    help
+        SPI mode (CPOL / CPHA). Match the slave gamepad's
+        expected mode.
+
+endmenu  # SPI gamepad
+
+endmenu  # Gamepad
 
 #
 # BLE HID device identity.

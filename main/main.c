@@ -9,7 +9,8 @@
  *   5. keyboard_ui_init() + start UI task
  *   6. ble_hid_init()    -- NimBLE host + GATT
  *   7. narrator_init()   -- audio backend if available
- *   8. gamepad_i2c_start()
+ *   8. gamepad_i2c_start() or gamepad_spi_start()
+ *      (depending on CONFIG_SK_GAMEPAD_TRANSPORT)
  *   9. input_router_start()
  */
 
@@ -28,6 +29,7 @@
 #include "kb_layout.h"
 #include "keyboard_ui.h"
 #include "gamepad_i2c.h"
+#include "gamepad_spi.h"
 #include "input_router.h"
 #include "ble_hid.h"
 #include "narrator.h"
@@ -104,7 +106,11 @@ void app_main(void)
     narrator_init();
 
     /* 7. Gamepad + router. */
+#if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
+    QueueHandle_t q = gamepad_spi_start();
+#else
     QueueHandle_t q = gamepad_i2c_start();
+#endif
     input_router_start(q);
 
     ESP_LOGI(TAG, "boot complete; firmware %s on %s",
