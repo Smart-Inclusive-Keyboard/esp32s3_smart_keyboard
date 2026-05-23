@@ -12,8 +12,10 @@ embed list is skipped entirely.
 They are taken verbatim from the upstream
 [clackups/smart-keyboard](https://github.com/clackups/smart-keyboard)
 project's `audio/` folder (MIT-licensed, same as this firmware).
-Drop them into this directory before building. The narrator
-expects the following filenames:
+The letter clips are the US-English set (`us_<letter>.wav` upstream),
+renamed to drop the `us_` prefix so they match the symbol names
+the narrator declares. `esc.wav` upstream is imported as
+`escape.wav`. The narrator expects the following filenames:
 
 ```
 a.wav, b.wav, ..., z.wav
