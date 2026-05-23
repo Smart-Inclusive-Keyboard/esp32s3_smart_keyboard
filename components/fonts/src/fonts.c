@@ -19,5 +19,5 @@ const uint8_t *font_glyph_8x8(char c)
     if (uc < 0x20 || uc > 0x7E) {
         return s_fallback;
     }
-    return font8x8_basic[uc];
+    return (const uint8_t *)font8x8_basic[uc];
 }
