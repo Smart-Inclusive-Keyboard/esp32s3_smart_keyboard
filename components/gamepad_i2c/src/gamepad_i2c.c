@@ -15,26 +15,9 @@
 
 #include <string.h>
 
-#include <esp_check.h>
 #include <esp_log.h>
-#include <esp_timer.h>
-#include <driver/i2c_master.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include "board.h"
 #include "sdkconfig.h"
-
-static const char *TAG = "gamepad_i2c";
-
-static QueueHandle_t        s_queue;
-static i2c_master_bus_handle_t s_bus;
-static i2c_master_dev_handle_t s_dev;
-
-/* The previous frame's logical button bitmap, used for edge
- * detection. Bit positions match the gamepad_button_t enum. */
-static uint32_t s_prev_state;
 
 static const char *s_names[GP_BTN_COUNT] = {
     [GP_BTN_UP]     = "UP",
@@ -56,6 +39,28 @@ const char *gamepad_button_name(gamepad_button_t b)
     if ((int)b < 0 || (int)b >= GP_BTN_COUNT) return "?";
     return s_names[b];
 }
+
+#if CONFIG_SK_GAMEPAD_TRANSPORT_I2C
+
+#include <esp_check.h>
+#include <esp_timer.h>
+#include <driver/i2c_master.h>
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "board.h"
+#include "sdkconfig.h"
+
+static const char *TAG = "gamepad_i2c";
+
+static QueueHandle_t        s_queue;
+static i2c_master_bus_handle_t s_bus;
+static i2c_master_dev_handle_t s_dev;
+
+/* The previous frame's logical button bitmap, used for edge
+ * detection. Bit positions match the gamepad_button_t enum. */
+static uint32_t s_prev_state;
 
 /* Decode a 4-byte report into a flat bitmap whose bit positions
  * match gamepad_button_t. */
@@ -188,3 +193,13 @@ QueueHandle_t gamepad_i2c_start(void)
              b->i2c_port, b->i2c_sda, b->i2c_scl);
     return s_queue;
 }
+
+#else  /* CONFIG_SK_GAMEPAD_TRANSPORT_I2C */
+
+QueueHandle_t gamepad_i2c_start(void)
+{
+    /* I2C transport disabled at compile time. */
+    return NULL;
+}
+
+#endif

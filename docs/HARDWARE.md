@@ -31,10 +31,14 @@ Placeholder boards. Edit
 `board_generic_esp32.c`) to fill in the pin map for your custom
 wiring, then select the matching board in menuconfig.
 
-## I2C gamepad wiring
+## Gamepad wiring
 
-The gamepad protocol is a fixed 4-byte HID-style report read
-from the configured 7-bit slave address:
+The external gamepad can be wired to either an I2C bus or an SPI
+bus; the firmware is always the bus master / host, and the
+gamepad is always the slave. Pick a transport with
+`CONFIG_SK_GAMEPAD_TRANSPORT_{I2C,SPI}` in menuconfig.
+
+Both transports use the same fixed 4-byte HID-style report:
 
 ```
 byte 0:  X axis, int8_t (-128..127, 0 = centred)
@@ -43,11 +47,25 @@ byte 2:  face button bitmap A=0x01 B=0x02 X=0x04 Y=0x08
 byte 3:  aux  button bitmap L=0x01 R=0x02 SELECT=0x04 START=0x08
 ```
 
-To use a controller with a different protocol, edit
-`gamepad_parse_report()` in
-`components/gamepad_i2c/src/gamepad_i2c.c`. The driver does no
+### I2C transport
+
+Read from the configured 7-bit slave address every
+`CONFIG_SK_GAMEPAD_POLL_MS` milliseconds. The driver does no
 register addressing -- it issues a raw 4-byte read every poll
-interval.
+interval. To use a controller with a different protocol, edit
+`gamepad_parse_report()` in
+`components/gamepad_i2c/src/gamepad_i2c.c`.
+
+### SPI transport
+
+The device asserts CS and issues a single full-duplex 4-byte
+transaction every `CONFIG_SK_GAMEPAD_POLL_MS` milliseconds; the
+MOSI byte is a dummy command (`0x00`) and the gamepad clocks the
+4-byte report back on MISO. SCLK / MOSI / MISO / CS pins, SPI
+host, clock frequency, and SPI mode (CPOL/CPHA) are all set in
+menuconfig under **SMART KEYBOARD -> Gamepad -> SPI gamepad**.
+The decoder is the same `gamepad_parse_report()` style routine
+in `components/gamepad_spi/src/gamepad_spi.c`.
 
 ## Power
 

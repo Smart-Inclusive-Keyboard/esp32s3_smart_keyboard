@@ -21,7 +21,23 @@ The Audio / Narrator menu is **hidden** unless `BOARD_HAS_PSRAM`
 and `BOARD_HAS_SPEAKER` are both set, because narration requires
 both to be useful.
 
-## I2C gamepad
+## Gamepad transport
+
+`SK_GAMEPAD_TRANSPORT_I2C` (default) or `SK_GAMEPAD_TRANSPORT_SPI`
+picks the bus the external gamepad is wired to. The device is
+always the bus master / host; the gamepad is always the slave.
+Only the selected transport's driver is compiled in, but the
+4-byte report format and `gamepad_event_t` queue are identical
+across both, so `input_router` is transport-agnostic.
+
+Shared options (apply regardless of transport):
+
+| Option                            | Default | Range            |
+| --------------------------------- | ------- | ---------------- |
+| `SK_GAMEPAD_POLL_MS`              | 16      | 5..100           |
+| `SK_GAMEPAD_AXIS_DEADZONE`        | 40      | 0..127           |
+
+### I2C gamepad (`SK_GAMEPAD_TRANSPORT_I2C`)
 
 | Option                            | Default | Range            |
 | --------------------------------- | ------- | ---------------- |
@@ -30,8 +46,25 @@ both to be useful.
 | `SK_GAMEPAD_I2C_SCL_GPIO`         | 10      | any GPIO         |
 | `SK_GAMEPAD_I2C_FREQ_HZ`          | 100000  | 50 kHz..400 kHz  |
 | `SK_GAMEPAD_I2C_ADDR`             | 0x52    | 0x08..0x77       |
-| `SK_GAMEPAD_POLL_MS`              | 16      | 5..100           |
-| `SK_GAMEPAD_AXIS_DEADZONE`        | 40      | 0..127           |
+
+### SPI gamepad (`SK_GAMEPAD_TRANSPORT_SPI`)
+
+The device drives SCLK / MOSI / CS toward the gamepad slave and
+clocks the 4-byte report back on MISO. One full-duplex 4-byte
+transaction is issued per poll.
+
+| Option                            | Default | Range                |
+| --------------------------------- | ------- | -------------------- |
+| `SK_GAMEPAD_SPI_HOST`             | 2       | 1..3 (SPI2 / SPI3)   |
+| `SK_GAMEPAD_SPI_SCLK_GPIO`        | 12      | any GPIO             |
+| `SK_GAMEPAD_SPI_MOSI_GPIO`        | 11      | any GPIO             |
+| `SK_GAMEPAD_SPI_MISO_GPIO`        | 13      | any GPIO             |
+| `SK_GAMEPAD_SPI_CS_GPIO`          | 10      | any GPIO             |
+| `SK_GAMEPAD_SPI_FREQ_HZ`          | 1000000 | 100 kHz..10 MHz      |
+| `SK_GAMEPAD_SPI_MODE`             | 0       | 0..3 (CPOL/CPHA)     |
+
+On boards that already use SPI2 for the display (e.g. the
+Waveshare 3.49), prefer host 3 for the gamepad.
 
 ## BLE HID
 
