@@ -6,18 +6,24 @@ if(CONFIG_BOARD_HAS_PSRAM AND CONFIG_BOARD_HAS_SPEAKER AND CONFIG_NARRATOR_ENABL
     # full filename list.
     file(GLOB _wavs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "wav/*.wav")
     if(_wavs)
-        # NOTE: use REQUIRES (not PRIV_REQUIRES) so the audio and
-        # kb_layout component INCLUDE_DIRS are guaranteed to be on
-        # the compile line for narrator.c during the early
-        # expansion phase. With EMBED_FILES in play, PRIV_REQUIRES
-        # propagation has been observed to lose audio.h visibility
-        # on some IDF versions (fatal error: audio.h: No such
-        # file or directory).
+        # narrator.c does `#include "audio.h"` and `#include
+        # "kb_layout.h"`. Declare both as REQUIRES so their public
+        # INCLUDE_DIRS are exposed to our compile line. We also
+        # add the include paths explicitly via
+        # target_include_directories below as a belt-and-suspenders
+        # failsafe -- with EMBED_FILES in the mix the IDF
+        # dependency-graph expansion has been observed to fail to
+        # propagate them on some setups (ESP-IDF v5.5.x), producing
+        # `fatal error: audio.h: No such file or directory`.
         idf_component_register(
             SRCS "src/narrator.c"
             INCLUDE_DIRS "include"
             REQUIRES audio kb_layout
             EMBED_FILES ${_wavs}
+        )
+        target_include_directories(${COMPONENT_LIB} PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/../audio/include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../kb_layout/include"
         )
     else()
         # No assets dropped in yet -- fall back to the no-op stub
