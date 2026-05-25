@@ -211,10 +211,40 @@ endmenu  # SPI gamepad
 endmenu  # Gamepad
 
 #
+# HID transport selection. The device acts as a HID peripheral over
+# either Bluetooth Low Energy or USB. Each option is only offered
+# when the selected ESP32 model actually has the matching radio /
+# controller (SOC_BLE_SUPPORTED / SOC_USB_OTG_SUPPORTED come from
+# the IDF SoC capability headers).
+#
+
+choice SK_HID_TRANSPORT
+    prompt "HID interface"
+    default SK_HID_TRANSPORT_BLE if SOC_BLE_SUPPORTED
+    default SK_HID_TRANSPORT_USB
+    help
+        Selects the transport the device uses to act as a HID
+        peripheral. Only interfaces supported by the chosen
+        ESP32 model are selectable: BLE requires a Bluetooth LE
+        radio, USB requires on-chip USB OTG (e.g. ESP32-S2 /
+        ESP32-S3).
+
+config SK_HID_TRANSPORT_BLE
+    bool "BLE HID (Bluetooth LE keyboard)"
+    depends on SOC_BLE_SUPPORTED
+
+config SK_HID_TRANSPORT_USB
+    bool "USB HID (USB keyboard)"
+    depends on SOC_USB_OTG_SUPPORTED
+
+endchoice
+
+#
 # BLE HID device identity.
 #
 
 menu "BLE HID"
+    depends on SK_HID_TRANSPORT_BLE
 
 config SK_BLE_DEVICE_NAME
     string "Advertised device name"
