@@ -34,8 +34,8 @@ void keyboard_ui_init(void);
  * Returns true if the selection actually moved. */
 bool keyboard_ui_move(int drow, int dcol);
 
-/* Toggle a sticky modifier (KB_MOD_LSHIFT / _LCTRL / _LALT from
- * ble_hid.h). Calling with mod = 0 clears all modifiers. */
+/* Toggle a sticky modifier (HID_MOD_LSHIFT / _LCTRL / _LALT from
+ * hid.h). Calling with mod = 0 clears all modifiers. */
 void keyboard_ui_toggle_mod(uint8_t mod);
 
 /* Latch a one-shot modifier for the next keypress. Useful for
@@ -44,11 +44,11 @@ void keyboard_ui_oneshot_mod(uint8_t mod);
 
 /* Press the currently selected key with the active modifier set
  * (sticky + one-shot OR'd together). Sends a key-down + key-up
- * pair to the host via ble_hid. */
+ * pair to the host via hid_send_key(). */
 void keyboard_ui_press_current(void);
 
 /* Status-bar updates from outside. The strings are copied. */
-void keyboard_ui_set_ble_status(const char *text, bool connected);
+void keyboard_ui_set_hid_status(const char *text, bool connected);
 void keyboard_ui_set_passkey(uint32_t passkey);
 
 /* Switch between text-entry and mouse-cursor modes. In mouse

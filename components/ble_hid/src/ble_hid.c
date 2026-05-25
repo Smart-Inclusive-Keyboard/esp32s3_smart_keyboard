@@ -19,6 +19,10 @@
 
 #include "ble_hid.h"
 
+#include "sdkconfig.h"
+
+#if CONFIG_SK_HID_TRANSPORT_BLE
+
 #include <string.h>
 
 #include <esp_log.h>
@@ -34,8 +38,6 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
-
-#include "sdkconfig.h"
 
 /* Provided by NimBLE when CONFIG_BT_NIMBLE_NVS_PERSIST=y: installs
  * the on-flash bonding store so we don't reauthenticate every boot. */
@@ -472,3 +474,21 @@ bool ble_hid_is_connected(void)
 {
     return s_connected;
 }
+
+#else  /* !CONFIG_SK_HID_TRANSPORT_BLE ----- stub build ----- */
+
+/* When USB is the selected transport, the unified hid facade never
+ * calls into these functions. We still provide them so the archive
+ * carries the public symbols and the linker is satisfied even if
+ * something stray includes <ble_hid.h>. */
+
+void ble_hid_init(ble_status_cb_t cb)              { (void)cb; }
+void ble_hid_send_key(uint8_t m, uint8_t u)        { (void)m; (void)u; }
+void ble_hid_send_keys(uint8_t m, const uint8_t *u, int n)
+                                                   { (void)m; (void)u; (void)n; }
+void ble_hid_release_all(void)                     {}
+void ble_hid_send_mouse(int dx, int dy, uint8_t b, int w)
+                                                   { (void)dx; (void)dy; (void)b; (void)w; }
+bool ble_hid_is_connected(void)                    { return false; }
+
+#endif  /* CONFIG_SK_HID_TRANSPORT_BLE */

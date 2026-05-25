@@ -261,6 +261,32 @@ config SK_BLE_BOND_ON_PAIR
 endmenu  # BLE HID
 
 #
+# USB HID device identity. Shown by the host's Device Manager /
+# `lsusb` output.
+#
+
+menu "USB HID"
+    depends on SK_HID_TRANSPORT_USB
+
+config SK_USB_MANUFACTURER
+    string "USB iManufacturer string"
+    default "clackups"
+
+config SK_USB_PRODUCT
+    string "USB iProduct string"
+    default "SmartKeyboard"
+
+config SK_USB_SERIAL
+    string "USB iSerial string"
+    default "000001"
+    help
+        Used as the serial-number string descriptor. Hosts use
+        this to distinguish multiple identical devices; pick
+        something unique if you flash more than one board.
+
+endmenu  # USB HID
+
+#
 # Keyboard layout.
 #
 

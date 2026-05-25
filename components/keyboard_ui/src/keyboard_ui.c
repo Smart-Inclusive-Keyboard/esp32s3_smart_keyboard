@@ -4,7 +4,7 @@
  * Layout
  * ------
  *   +----------------------------------------------------------+
- *   | status bar : layout | mods | BLE | mode                  |
+ *   | status bar : layout | mods | HID | mode                  |
  *   +----------------------------------------------------------+
  *   | key grid: rows x cols, selected cell highlighted         |
  *   +----------------------------------------------------------+
@@ -35,7 +35,7 @@
 #include "theme.h"
 #include "fonts.h"
 #include "kb_layout.h"
-#include "ble_hid.h"
+#include "hid.h"
 
 static const char *TAG = "kb_ui";
 
@@ -47,10 +47,10 @@ typedef struct {
     int  sel_col;
     uint8_t  mod_sticky;    /* persistent across keypresses     */
     uint8_t  mod_oneshot;   /* cleared after the next keypress  */
-    bool     ble_connected;
+    bool     hid_connected;
     uint32_t passkey;       /* 0 = none, else 6-digit value     */
     keyboard_ui_mode_t mode;
-    char     ble_status[32];
+    char     hid_status[32];
 } ui_state_t;
 
 static ui_state_t s_st;
@@ -99,9 +99,9 @@ static void draw_status_bar(const theme_t *th)
 
     int x = 2 + (int)strlen(line) * 8 + 8;
     const struct { const char *t; uint8_t m; } mods[] = {
-        { "Sh", KB_MOD_LSHIFT },
-        { "Ct", KB_MOD_LCTRL  },
-        { "Al", KB_MOD_LALT   },
+        { "Sh", HID_MOD_LSHIFT },
+        { "Ct", HID_MOD_LCTRL  },
+        { "Al", HID_MOD_LALT   },
     };
     for (size_t i = 0; i < sizeof(mods) / sizeof(mods[0]); ++i) {
         bool on = (s_st.mod_sticky | s_st.mod_oneshot) & mods[i].m;
@@ -112,10 +112,10 @@ static void draw_status_bar(const theme_t *th)
         x += 2 * 8 + 8;
     }
 
-    /* Right side: BLE indicator + status text. */
-    uint16_t ble_col = s_st.ble_connected ? th->conn_connected
+    /* Right side: HID link indicator + status text. */
+    uint16_t hid_col = s_st.hid_connected ? th->conn_connected
                                           : th->conn_disconnected;
-    display_fill_rect(w - 8, 3, 6, STATUS_BAR_H - 6, ble_col);
+    display_fill_rect(w - 8, 3, 6, STATUS_BAR_H - 6, hid_col);
 
     if (s_st.passkey) {
         char pk[16];
@@ -124,10 +124,10 @@ static void draw_status_bar(const theme_t *th)
         int len = (int)strlen(pk);
         display_draw_string(w - 16 - len * 8, 3, pk, 1,
                             th->status_ind_fg, th->status_bar_bg, true);
-    } else if (s_st.ble_status[0]) {
-        int len = (int)strlen(s_st.ble_status);
+    } else if (s_st.hid_status[0]) {
+        int len = (int)strlen(s_st.hid_status);
         if (len > 16) len = 16;
-        display_draw_string(w - 16 - len * 8, 3, s_st.ble_status, 1,
+        display_draw_string(w - 16 - len * 8, 3, s_st.hid_status, 1,
                             th->status_ind_fg, th->status_bar_bg, true);
     }
 }
@@ -172,7 +172,7 @@ static void draw_keyboard(const theme_t *th)
             display_fill_rect(x, y, cell_w, cell_h, bg);
 
             const char *lbl = ((s_st.mod_sticky | s_st.mod_oneshot)
-                               & KB_MOD_LSHIFT)
+                               & HID_MOD_LSHIFT)
                               ? k->label_shifted : k->label_unshifted;
             if (!lbl || !*lbl) continue;
 
@@ -239,7 +239,7 @@ void keyboard_ui_init(void)
     s_st.sel_row = 0;
     s_st.sel_col = 0;
     s_st.mode    = KB_MODE_KEYBOARD;
-    snprintf(s_st.ble_status, sizeof(s_st.ble_status), "BLE: idle");
+    snprintf(s_st.hid_status, sizeof(s_st.hid_status), "HID: idle");
 
     nvs_load_strings();
     s_redraw_q = xQueueCreate(4, sizeof(uint8_t));
@@ -299,17 +299,17 @@ void keyboard_ui_press_current(void)
     if (!k || k->hid_usage == HID_USAGE_NONE) return;
 
     uint8_t mods = s_st.mod_sticky | s_st.mod_oneshot;
-    ble_hid_send_key(mods, k->hid_usage);
-    ble_hid_release_all();
+    hid_send_key(mods, k->hid_usage);
+    hid_release_all();
     s_st.mod_oneshot = 0;
     keyboard_ui_request_redraw();
 }
 
-void keyboard_ui_set_ble_status(const char *text, bool connected)
+void keyboard_ui_set_hid_status(const char *text, bool connected)
 {
-    s_st.ble_connected = connected;
+    s_st.hid_connected = connected;
     if (text) {
-        snprintf(s_st.ble_status, sizeof(s_st.ble_status), "%s", text);
+        snprintf(s_st.hid_status, sizeof(s_st.hid_status), "%s", text);
     }
     /* Clear any stale pairing PIN once we transition to connected. */
     if (connected) s_st.passkey = 0;

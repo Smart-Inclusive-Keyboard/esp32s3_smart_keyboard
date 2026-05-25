@@ -1,5 +1,5 @@
 /*
- * Gamepad-event -> keyboard/BLE action router.
+ * Gamepad-event -> keyboard/HID action router.
  */
 
 #include "input_router.h"
@@ -13,7 +13,7 @@
 
 #include "gamepad_i2c.h"
 #include "keyboard_ui.h"
-#include "ble_hid.h"
+#include "hid.h"
 #include "kb_layout.h"
 #include "narrator.h"
 
@@ -56,7 +56,7 @@ static void dir_apply(gamepad_button_t b)
     default: return;
     }
     if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-        ble_hid_send_mouse(dc * MOUSE_STEP, dr * MOUSE_STEP, 0, 0);
+        hid_send_mouse(dc * MOUSE_STEP, dr * MOUSE_STEP, 0, 0);
     } else {
         if (keyboard_ui_move(dr, dc)) {
             const kb_layout_t *l = kb_layout_active();
@@ -87,25 +87,25 @@ static void handle_down(gamepad_button_t b, uint32_t now)
     switch (b) {
     case GP_BTN_A:
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-            ble_hid_send_mouse(0, 0, MS_BTN_LEFT, 0);
-            ble_hid_send_mouse(0, 0, 0, 0);
+            hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
+            hid_send_mouse(0, 0, 0, 0);
         } else {
             press_with_mod(0);
         }
         break;
     case GP_BTN_X:
-        press_with_mod(KB_MOD_LSHIFT);
+        press_with_mod(HID_MOD_LSHIFT);
         break;
     case GP_BTN_B:
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-            ble_hid_send_mouse(0, 0, MS_BTN_RIGHT, 0);
-            ble_hid_send_mouse(0, 0, 0, 0);
+            hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
+            hid_send_mouse(0, 0, 0, 0);
         } else {
-            press_with_mod(KB_MOD_LCTRL);
+            press_with_mod(HID_MOD_LCTRL);
         }
         break;
     case GP_BTN_Y:
-        press_with_mod(KB_MOD_LALT);
+        press_with_mod(HID_MOD_LALT);
         break;
     case GP_BTN_L:
         if (s_b[GP_BTN_R].down) {
@@ -114,8 +114,8 @@ static void handle_down(gamepad_button_t b, uint32_t now)
                 keyboard_ui_get_mode() == KB_MODE_MOUSE
                     ? KB_MODE_KEYBOARD : KB_MODE_MOUSE);
         } else {
-            ble_hid_send_key(0, HID_USAGE_BACKSPACE);
-            ble_hid_release_all();
+            hid_send_key(0, HID_USAGE_BACKSPACE);
+            hid_release_all();
         }
         break;
     case GP_BTN_R:
@@ -125,7 +125,7 @@ static void handle_down(gamepad_button_t b, uint32_t now)
                 keyboard_ui_get_mode() == KB_MODE_MOUSE
                     ? KB_MODE_KEYBOARD : KB_MODE_MOUSE);
         } else {
-            keyboard_ui_toggle_mod(KB_MOD_LSHIFT);
+            keyboard_ui_toggle_mod(HID_MOD_LSHIFT);
         }
         break;
     case GP_BTN_START:
