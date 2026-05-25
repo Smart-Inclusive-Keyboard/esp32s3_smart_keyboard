@@ -50,9 +50,16 @@ const board_t g_board = {
         .te  = 18,
         .bl  = 8,
         .bl_active_low = true,
+        /* Logical (post-rotation) resolution. The AXS15231B panel is
+         * natively portrait 172w x 640h; we expose it as 640x172
+         * landscape to the rest of the firmware and let the display
+         * backend perform a 90 deg CW software rotation in its
+         * flush path. Hardware MADCTL MV (row/column swap) is
+         * silently ignored on this panel revision, so swap_xy must
+         * be true (software rotation). */
         .width  = 640,
         .height = 172,
-        .swap_xy = false,
+        .swap_xy = true,
     },
 #if CONFIG_SK_GAMEPAD_TRANSPORT_I2C
     .i2c_port    = CONFIG_SK_GAMEPAD_I2C_PORT,
