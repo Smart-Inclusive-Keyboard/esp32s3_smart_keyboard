@@ -785,6 +785,16 @@ void display_axs15231b_init(void)
     hw_reset();
     axs15231b_init_sequence();
 
+    /* 6a. Clear the panel's on-chip GRAM BEFORE turning on the
+     * backlight. axs15231b_init_sequence() ends with DISPON, so the
+     * controller is now scanning out whatever random bits were in
+     * GRAM at power-on. If we let backlight_init() raise the BL to
+     * 100% next, the user sees a brief burst of garbage pixels
+     * before the first UI flush arrives. The framebuffer was just
+     * memset to 0 above, so streaming it now paints the panel
+     * black. */
+    flush_bbox(0, 0, s_w - 1, s_h - 1);
+
     /* 7. Backlight (LEDC PWM at 100 % from boot). */
     backlight_init();
 
