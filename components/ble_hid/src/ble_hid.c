@@ -21,10 +21,13 @@
 
 #include "sdkconfig.h"
 
-/* This translation unit is only added to SRCS when
- * CONFIG_SK_HID_TRANSPORT_BLE is selected (see components/ble_hid/
- * CMakeLists.txt), so the NimBLE headers below are guaranteed to
- * resolve and the bt component is in PRIV_REQUIRES. */
+/* The CMakeLists for this component is static (always builds this
+ * TU, always PRIV_REQUIRES bt). When BLE is not the selected HID
+ * transport we compile the file as an empty TU so that NimBLE
+ * headers are never preprocessed and no symbols are emitted. The
+ * hid.c facade only dispatches into this backend when the same
+ * CONFIG is set, so the link stays clean either way. */
+#if CONFIG_SK_HID_TRANSPORT_BLE
 
 #include <string.h>
 
@@ -477,4 +480,6 @@ bool ble_hid_is_connected(void)
 {
     return s_connected;
 }
+
+#endif /* CONFIG_SK_HID_TRANSPORT_BLE */
 
