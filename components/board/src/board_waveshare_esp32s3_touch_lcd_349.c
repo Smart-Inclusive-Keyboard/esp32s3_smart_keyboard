@@ -3,11 +3,20 @@
  *
  * Panel:   AXS15231B QSPI, 640 (W) x 172 (H) landscape.
  *
- * Pins (Waveshare schematic / sample code):
- *   LCD QSPI:  CS=9, SCK=12, D0=11, D1=13, D2=14, D3=10
- *   LCD RST :  17
- *   LCD TE  :  18 (tearing-effect input)
+ * Pins (Waveshare official reference firmware
+ * Examples/Arduino/09_LVGL_V8_Test/user_config.h, verified working
+ * by the clackups/draftling port on the same board):
+ *   LCD QSPI:  CS=9, SCK=10, D0=11, D1=12, D2=13, D3=14
+ *   LCD RST :  21
+ *   LCD TE  :  -1 (not wired on this board)
  *   LCD BL  :  8  (active LOW, driven by LEDC PWM)
+ *
+ *   GPIO 17/18 are the on-board capacitive-touch I2C bus (SDA/SCL)
+ *   on this board, NOT the LCD -- earlier revisions of this file
+ *   placed LCD RST/TE there and the SPI driver streamed pixel data
+ *   onto the wrong physical pins, leaving the panel in its POR
+ *   state (random GRAM, preserved across MCU reset, re-randomised
+ *   on power cycle).
  *
  *   External gamepad header: I2C SDA=1, SCL=2 / SPI SCLK=4,
  *   MOSI=5, MISO=39, CS=40. Hardcoded here (NOT taken from the
@@ -56,14 +65,14 @@ const board_t g_board = {
     .name = "Waveshare ESP32-S3-Touch-LCD-3.49",
     .display_type = BOARD_DISPLAY_AXS15231B,
     .display = {
-        .cs = 9,
-        .sck = 12,
-        .d0 = 11,
-        .d1 = 13,
-        .d2 = 14,
-        .d3 = 10,
-        .rst = 17,
-        .te  = 18,
+        .cs  = 9,
+        .sck = 10,
+        .d0  = 11,
+        .d1  = 12,
+        .d2  = 13,
+        .d3  = 14,
+        .rst = 21,
+        .te  = -1,    /* TE not wired on this board */
         .bl  = 8,
         .bl_active_low = true,
         /* Logical (post-rotation) resolution. The AXS15231B panel is
@@ -116,10 +125,11 @@ const board_t g_board = {
 
 /* Compile-time guards against re-introducing the display/gamepad pin
  * overlap that left the panel permanently black. The set of GPIOs the
- * display owns is { 8, 9, 10, 11, 12, 13, 14, 17, 18 }; the audio
- * codec owns { 7, 15, 45, 46 }. Any gamepad pin landing in either set
- * means the gamepad bus master will drive the same wire as the LCD /
- * codec driver, corrupting both.
+ * display owns is { 8, 9, 10, 11, 12, 13, 14, 21 }; the audio codec
+ * owns { 7, 15, 45, 46 }; the on-board capacitive-touch I2C bus is
+ * on { 17, 18 }. Any gamepad pin landing in any of those sets means
+ * the gamepad bus master will drive the same wire as the LCD / codec
+ * / touch driver, corrupting both.
  *
  * Additionally enforce membership in the set of GPIOs the user has
  * confirmed are broken out and free on this board:
@@ -133,14 +143,17 @@ const board_t g_board = {
     (p) == 5  || (p) == 19 || (p) == 20 || (p) == 33 || (p) == 39 || \
     (p) == 40 || (p) == 41 || (p) == 43 || (p) == 44)
 #define SK_PIN_CONFLICTS_DISPLAY(p) ( \
-    (p) == 8 || (p) == 9 || (p) == 10 || (p) == 11 || (p) == 12 || \
-    (p) == 13 || (p) == 14 || (p) == 17 || (p) == 18)
+    (p) == 8  || (p) == 9  || (p) == 10 || (p) == 11 || (p) == 12 || \
+    (p) == 13 || (p) == 14 || (p) == 21)
 #define SK_PIN_CONFLICTS_AUDIO(p) ( \
     (p) == 7 || (p) == 15 || (p) == 45 || (p) == 46)
+#define SK_PIN_CONFLICTS_TOUCH(p) ( \
+    (p) == 17 || (p) == 18)
 #define SK_GAMEPAD_PIN_OK(p) \
     (SK_PIN_AVAILABLE(p) && \
      !SK_PIN_CONFLICTS_DISPLAY(p) && \
-     !SK_PIN_CONFLICTS_AUDIO(p))
+     !SK_PIN_CONFLICTS_AUDIO(p) && \
+     !SK_PIN_CONFLICTS_TOUCH(p))
 
 #if CONFIG_SK_GAMEPAD_TRANSPORT_I2C
 _Static_assert(SK_GAMEPAD_PIN_OK(1),
