@@ -232,10 +232,22 @@ choice SK_HID_TRANSPORT
 config SK_HID_TRANSPORT_BLE
     bool "BLE HID (Bluetooth LE keyboard)"
     depends on SOC_BLE_SUPPORTED
+    select BT_ENABLED
+    select BT_NIMBLE_ENABLED
+    help
+        Use NimBLE to advertise a composite HID-over-GATT
+        keyboard + mouse. Auto-enables the Bluetooth controller
+        and the NimBLE host so the build stays consistent with
+        this choice.
 
 config SK_HID_TRANSPORT_USB
     bool "USB HID (USB keyboard)"
     depends on SOC_USB_OTG_SUPPORTED
+    help
+        Use TinyUSB to expose a composite HID keyboard + mouse
+        on the on-chip USB OTG controller. The Bluetooth stack
+        can be disabled in 'Component config -> Bluetooth' to
+        reclaim ~60 KB flash / ~30 KB RAM.
 
 endchoice
 

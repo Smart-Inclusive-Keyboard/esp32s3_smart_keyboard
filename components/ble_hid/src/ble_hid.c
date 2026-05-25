@@ -21,7 +21,7 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_SK_HID_TRANSPORT_BLE
+#if CONFIG_SK_HID_TRANSPORT_BLE && CONFIG_BT_NIMBLE_ENABLED
 
 #include <string.h>
 
@@ -475,7 +475,7 @@ bool ble_hid_is_connected(void)
     return s_connected;
 }
 
-#else  /* !CONFIG_SK_HID_TRANSPORT_BLE ----- stub build ----- */
+#else  /* !(CONFIG_SK_HID_TRANSPORT_BLE && CONFIG_BT_NIMBLE_ENABLED) ----- stub build ----- */
 
 /* When USB is the selected transport, the unified hid facade never
  * calls into these functions. We still provide them so the archive
@@ -491,4 +491,4 @@ void ble_hid_send_mouse(int dx, int dy, uint8_t b, int w)
                                                    { (void)dx; (void)dy; (void)b; (void)w; }
 bool ble_hid_is_connected(void)                    { return false; }
 
-#endif  /* CONFIG_SK_HID_TRANSPORT_BLE */
+#endif  /* CONFIG_SK_HID_TRANSPORT_BLE && CONFIG_BT_NIMBLE_ENABLED */
