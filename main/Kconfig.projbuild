@@ -233,12 +233,22 @@ config SK_HID_TRANSPORT_BLE
     bool "BLE HID (Bluetooth LE keyboard)"
     depends on SOC_BLE_SUPPORTED
     select BT_ENABLED
-    select BT_NIMBLE_ENABLED
     help
         Use NimBLE to advertise a composite HID-over-GATT
-        keyboard + mouse. Auto-enables the Bluetooth controller
-        and the NimBLE host so the build stays consistent with
-        this choice.
+        keyboard + mouse. Auto-enables the Bluetooth controller.
+
+        The NimBLE host (CONFIG_BT_NIMBLE_ENABLED) must also be
+        selected as the Bluetooth host stack. It is set by
+        sdkconfig.defaults for fresh builds, but cannot be
+        force-selected from here because BT_NIMBLE_ENABLED is a
+        member of ESP-IDF's `choice BT_HOST` (Kconfig disallows
+        `select` on choice members). If you carried over an
+        sdkconfig that has Bluedroid as the host, switch it in
+        menuconfig:
+          Component config -> Bluetooth -> Host -> NimBLE - BLE only
+        or delete sdkconfig and re-run `idf.py set-target ...`.
+        components/ble_hid/CMakeLists.txt asserts this and emits
+        a clear error otherwise.
 
 config SK_HID_TRANSPORT_USB
     bool "USB HID (USB keyboard)"

@@ -12,6 +12,22 @@
 set(srcs "")
 set(reqs nvs_flash)
 if(CONFIG_SK_HID_TRANSPORT_BLE)
+    ## BT_NIMBLE_ENABLED is a member of ESP-IDF's `choice BT_HOST`,
+    ## which Kconfig will not let us `select` from the project
+    ## Kconfig. If the user's sdkconfig has Bluedroid (or no host)
+    ## selected, the `bt` component skips its nimble include path
+    ## and we'd otherwise fail deep in the compile with a cryptic
+    ## "nimble/ble.h: No such file or directory". Fail loudly here
+    ## with an actionable message instead.
+    if(NOT CONFIG_BT_NIMBLE_ENABLED)
+        message(FATAL_ERROR
+            "SK_HID_TRANSPORT_BLE requires the NimBLE Bluetooth host. "
+            "Run `idf.py menuconfig` and set "
+            "Component config -> Bluetooth -> Host -> "
+            "\"NimBLE - BLE only\", or delete sdkconfig and rebuild "
+            "to pick up sdkconfig.defaults (which sets "
+            "CONFIG_BT_NIMBLE_ENABLED=y).")
+    endif()
     list(APPEND srcs "src/ble_hid.c")
     list(APPEND reqs bt)
 endif()
