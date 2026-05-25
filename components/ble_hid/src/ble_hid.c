@@ -21,7 +21,10 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_SK_HID_TRANSPORT_BLE
+/* This translation unit is only added to SRCS when
+ * CONFIG_SK_HID_TRANSPORT_BLE is selected (see components/ble_hid/
+ * CMakeLists.txt), so the NimBLE headers below are guaranteed to
+ * resolve and the bt component is in PRIV_REQUIRES. */
 
 #include <string.h>
 
@@ -475,20 +478,3 @@ bool ble_hid_is_connected(void)
     return s_connected;
 }
 
-#else  /* !CONFIG_SK_HID_TRANSPORT_BLE ----- stub build ----- */
-
-/* When USB is the selected transport, the unified hid facade never
- * calls into these functions. We still provide them so the archive
- * carries the public symbols and the linker is satisfied even if
- * something stray includes <ble_hid.h>. */
-
-void ble_hid_init(ble_status_cb_t cb)              { (void)cb; }
-void ble_hid_send_key(uint8_t m, uint8_t u)        { (void)m; (void)u; }
-void ble_hid_send_keys(uint8_t m, const uint8_t *u, int n)
-                                                   { (void)m; (void)u; (void)n; }
-void ble_hid_release_all(void)                     {}
-void ble_hid_send_mouse(int dx, int dy, uint8_t b, int w)
-                                                   { (void)dx; (void)dy; (void)b; (void)w; }
-bool ble_hid_is_connected(void)                    { return false; }
-
-#endif  /* CONFIG_SK_HID_TRANSPORT_BLE */

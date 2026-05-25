@@ -27,7 +27,10 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_SK_HID_TRANSPORT_USB
+/* This translation unit is only added to SRCS when
+ * CONFIG_SK_HID_TRANSPORT_USB is selected (see components/usb_hid/
+ * CMakeLists.txt), so the TinyUSB headers below are guaranteed to
+ * resolve and esp_tinyusb is in PRIV_REQUIRES. */
 
 #include <string.h>
 
@@ -263,20 +266,3 @@ void usb_hid_init(usb_status_cb_t cb)
     notify("USB: starting", false);
     ESP_LOGI(TAG, "TinyUSB HID device installed (kbd+mouse)");
 }
-
-#else  /* !CONFIG_SK_HID_TRANSPORT_USB ----- stub build ----- */
-
-/* When BLE is the selected transport, the unified hid facade never
- * calls into these functions. We still need to provide them so the
- * archive contains the symbols the linker expects from usb_hid.h. */
-
-void usb_hid_init(usb_status_cb_t cb)              { (void)cb; }
-void usb_hid_send_key(uint8_t m, uint8_t u)        { (void)m; (void)u; }
-void usb_hid_send_keys(uint8_t m, const uint8_t *u, int n)
-                                                   { (void)m; (void)u; (void)n; }
-void usb_hid_release_all(void)                     {}
-void usb_hid_send_mouse(int dx, int dy, uint8_t b, int w)
-                                                   { (void)dx; (void)dy; (void)b; (void)w; }
-bool usb_hid_is_connected(void)                    { return false; }
-
-#endif  /* CONFIG_SK_HID_TRANSPORT_USB */
