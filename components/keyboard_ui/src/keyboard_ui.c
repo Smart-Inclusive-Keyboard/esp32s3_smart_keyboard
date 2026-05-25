@@ -259,6 +259,15 @@ void keyboard_ui_request_redraw(void)
     xQueueSend(s_redraw_q, &tok, 0);  /* never blocks */
 }
 
+void keyboard_ui_redraw_now(void)
+{
+    /* Synchronous full redraw from the calling context. Used by
+     * app_main() to paint the keyboard once before HID / gamepad
+     * init begins, so the user sees a visible UI even while those
+     * (potentially long-running) subsystems come up. */
+    redraw_all();
+}
+
 bool keyboard_ui_move(int drow, int dcol)
 {
     const kb_layout_t *l = kb_layout_active();
