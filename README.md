@@ -4,9 +4,11 @@ ESP-IDF firmware that recreates the
 [clackups/smart-keyboard](https://github.com/clackups/smart-keyboard)
 project on ESP32-family hardware: a virtual keyboard rendered on an
 on-board screen, navigated with an external gamepad (I2C or SPI),
-that acts as a **BLE HID keyboard + mouse** toward a host computer.
-With PSRAM and a speaker, an optional narrator speaks each letter
-as the user navigates.
+that acts as a **HID keyboard + mouse** toward a host computer over
+either **Bluetooth LE** (NimBLE) or **USB** (TinyUSB) -- the
+transport is a build-time Kconfig choice, gated by what the chosen
+ESP32 model actually supports. With PSRAM and a speaker, an
+optional narrator speaks each letter as the user navigates.
 
 ## Status
 
@@ -41,7 +43,9 @@ components/
   gamepad_i2c/         I2C master poller + simplified-HID parser
   gamepad_spi/         SPI host poller (same report format)
   input_router/        gamepad events -> UI nav + HID dispatch
-  ble_hid/             NimBLE composite HID (keyboard + mouse)
+  hid/                 transport-agnostic HID facade
+  ble_hid/             NimBLE composite HID backend (keyboard + mouse)
+  usb_hid/             TinyUSB composite HID backend (keyboard + mouse)
   audio/               I2S WAV player (sound output is I2S-only)
   narrator/            letter-name playback (conditional)
 docs/

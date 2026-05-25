@@ -27,3 +27,11 @@ CONFIG_NVS_ENCRYPTION=n
 
 # Newlib stdio: line-buffered, with C++ exceptions kept off.
 CONFIG_NEWLIB_STDOUT_LINE_ENDING_CRLF=y
+
+# TinyUSB: enable the HID class (1 instance: composite keyboard +
+# mouse). Without this, esp_tinyusb compiles with CFG_TUD_HID=0 and
+# tud_hid_*_report() symbols are missing -> link error in usb_hid.c.
+# The setting is silently ignored on builds that don't pull in the
+# esp_tinyusb managed component (i.e. when the BLE HID transport is
+# selected, or on classic ESP32 which has no USB OTG).
+CONFIG_TINYUSB_HID_COUNT=1

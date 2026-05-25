@@ -211,10 +211,62 @@ endmenu  # SPI gamepad
 endmenu  # Gamepad
 
 #
+# HID transport selection. The device acts as a HID peripheral over
+# either Bluetooth Low Energy or USB. Each option is only offered
+# when the selected ESP32 model actually has the matching radio /
+# controller (SOC_BLE_SUPPORTED / SOC_USB_OTG_SUPPORTED come from
+# the IDF SoC capability headers).
+#
+
+choice SK_HID_TRANSPORT
+    prompt "HID interface"
+    default SK_HID_TRANSPORT_BLE if SOC_BLE_SUPPORTED
+    default SK_HID_TRANSPORT_USB
+    help
+        Selects the transport the device uses to act as a HID
+        peripheral. Only interfaces supported by the chosen
+        ESP32 model are selectable: BLE requires a Bluetooth LE
+        radio, USB requires on-chip USB OTG (e.g. ESP32-S2 /
+        ESP32-S3).
+
+config SK_HID_TRANSPORT_BLE
+    bool "BLE HID (Bluetooth LE keyboard)"
+    depends on SOC_BLE_SUPPORTED
+    select BT_ENABLED
+    help
+        Use NimBLE to advertise a composite HID-over-GATT
+        keyboard + mouse. Auto-enables the Bluetooth controller.
+
+        The NimBLE host (CONFIG_BT_NIMBLE_ENABLED) must also be
+        selected as the Bluetooth host stack. It is set by
+        sdkconfig.defaults for fresh builds, but cannot be
+        force-selected from here because BT_NIMBLE_ENABLED is a
+        member of ESP-IDF's `choice BT_HOST` (Kconfig disallows
+        `select` on choice members). If you carried over an
+        sdkconfig that has Bluedroid as the host, switch it in
+        menuconfig:
+          Component config -> Bluetooth -> Host -> NimBLE - BLE only
+        or delete sdkconfig and re-run `idf.py set-target ...`.
+        components/ble_hid/CMakeLists.txt asserts this and emits
+        a clear error otherwise.
+
+config SK_HID_TRANSPORT_USB
+    bool "USB HID (USB keyboard)"
+    depends on SOC_USB_OTG_SUPPORTED
+    help
+        Use TinyUSB to expose a composite HID keyboard + mouse
+        on the on-chip USB OTG controller. The Bluetooth stack
+        can be disabled in 'Component config -> Bluetooth' to
+        reclaim ~60 KB flash / ~30 KB RAM.
+
+endchoice
+
+#
 # BLE HID device identity.
 #
 
 menu "BLE HID"
+    depends on SK_HID_TRANSPORT_BLE
 
 config SK_BLE_DEVICE_NAME
     string "Advertised device name"
@@ -229,6 +281,32 @@ config SK_BLE_BOND_ON_PAIR
     default y
 
 endmenu  # BLE HID
+
+#
+# USB HID device identity. Shown by the host's Device Manager /
+# `lsusb` output.
+#
+
+menu "USB HID"
+    depends on SK_HID_TRANSPORT_USB
+
+config SK_USB_MANUFACTURER
+    string "USB iManufacturer string"
+    default "clackups"
+
+config SK_USB_PRODUCT
+    string "USB iProduct string"
+    default "SmartKeyboard"
+
+config SK_USB_SERIAL
+    string "USB iSerial string"
+    default "000001"
+    help
+        Used as the serial-number string descriptor. Hosts use
+        this to distinguish multiple identical devices; pick
+        something unique if you flash more than one board.
+
+endmenu  # USB HID
 
 #
 # Keyboard layout.

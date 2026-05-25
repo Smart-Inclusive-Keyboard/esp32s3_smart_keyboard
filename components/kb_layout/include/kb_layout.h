@@ -5,9 +5,10 @@
  *
  * A layout is a static table of `kb_key_t` entries arranged in a
  * rectangular grid (rows x cols). The grid drives both the
- * on-screen rendering (keyboard_ui) and the BLE HID dispatch
+ * on-screen rendering (keyboard_ui) and the HID dispatch
  * (input_router): given a row/col selection and a modifier mask,
- * input_router emits modifier + HID-usage to ble_hid.
+ * input_router emits modifier + HID-usage to the active HID
+ * transport (BLE or USB, see components/hid).
  *
  * Ported one-to-one from the upstream Rust project's keymap_*.toml
  * so behaviour (incl. shifted glyphs) matches.

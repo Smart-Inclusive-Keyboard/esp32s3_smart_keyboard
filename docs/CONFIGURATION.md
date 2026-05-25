@@ -66,13 +66,45 @@ transaction is issued per poll.
 On boards that already use SPI2 for the display (e.g. the
 Waveshare 3.49), prefer host 3 for the gamepad.
 
+## HID transport
+
+The firmware acts as a HID peripheral over either Bluetooth LE or
+USB. The transport is selected at build time via
+`SK_HID_TRANSPORT`; each option is only offered when the target
+SoC actually has the corresponding controller
+(`SOC_BLE_SUPPORTED` / `SOC_USB_OTG_SUPPORTED`).
+
+| Option                  | Targets        | Backend                  |
+| ----------------------- | -------------- | ------------------------ |
+| `SK_HID_TRANSPORT_BLE`  | classic ESP32, S3 | NimBLE GATT HID       |
+| `SK_HID_TRANSPORT_USB`  | ESP32-S2, S3, P4  | TinyUSB composite HID |
+
+The classic ESP32 only exposes the BLE option; ESP32-S2 only the
+USB option; ESP32-S3 lets you pick either.
+
 ## BLE HID
+
+Only visible when `SK_HID_TRANSPORT_BLE` is selected.
 
 | Option                  | Default        | Purpose                  |
 | ----------------------- | -------------- | ------------------------ |
 | `SK_BLE_DEVICE_NAME`    | `SmartKeyboard`| advertised local name    |
 | `SK_BLE_MANUFACTURER`   | `clackups`     | shown in some host UIs   |
 | `SK_BLE_BOND_ON_PAIR`   | y              | persist bonds to NVS     |
+
+## USB HID
+
+Only visible when `SK_HID_TRANSPORT_USB` is selected.
+
+| Option                  | Default        | Purpose                  |
+| ----------------------- | -------------- | ------------------------ |
+| `SK_USB_MANUFACTURER`   | `clackups`     | USB iManufacturer string |
+| `SK_USB_PRODUCT`        | `SmartKeyboard`| USB iProduct string      |
+| `SK_USB_SERIAL`         | `000001`       | USB iSerial string       |
+
+When building a pure-USB image you can also disable the Bluetooth
+stack in `menuconfig > Component config > Bluetooth` to reclaim
+the ~60 KB it occupies in flash + ~30 KB in RAM.
 
 ## Keyboard layout
 

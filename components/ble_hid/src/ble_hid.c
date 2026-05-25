@@ -19,6 +19,16 @@
 
 #include "ble_hid.h"
 
+#include "sdkconfig.h"
+
+/* The CMakeLists for this component is static (always builds this
+ * TU, always PRIV_REQUIRES bt). When BLE is not the selected HID
+ * transport we compile the file as an empty TU so that NimBLE
+ * headers are never preprocessed and no symbols are emitted. The
+ * hid.c facade only dispatches into this backend when the same
+ * CONFIG is set, so the link stays clean either way. */
+#if CONFIG_SK_HID_TRANSPORT_BLE
+
 #include <string.h>
 
 #include <esp_log.h>
@@ -34,8 +44,6 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
-
-#include "sdkconfig.h"
 
 /* Provided by NimBLE when CONFIG_BT_NIMBLE_NVS_PERSIST=y: installs
  * the on-flash bonding store so we don't reauthenticate every boot. */
@@ -472,3 +480,6 @@ bool ble_hid_is_connected(void)
 {
     return s_connected;
 }
+
+#endif /* CONFIG_SK_HID_TRANSPORT_BLE */
+

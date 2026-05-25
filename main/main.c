@@ -7,7 +7,8 @@
  *   3. display_init()    -- framebuffer + AXS15231B QSPI driver
  *   4. Splash screen
  *   5. keyboard_ui_init() + start UI task
- *   6. ble_hid_init()    -- NimBLE host + GATT
+ *   6. hid_init()        -- BLE (NimBLE) or USB (TinyUSB), per
+ *                           CONFIG_SK_HID_TRANSPORT_*
  *   7. narrator_init()   -- audio backend if available
  *   8. gamepad_i2c_start() or gamepad_spi_start()
  *      (depending on CONFIG_SK_GAMEPAD_TRANSPORT)
@@ -31,7 +32,7 @@
 #include "gamepad_i2c.h"
 #include "gamepad_spi.h"
 #include "input_router.h"
-#include "ble_hid.h"
+#include "hid.h"
 #include "narrator.h"
 
 static const char *TAG = "main";
@@ -47,9 +48,10 @@ static void splash(void)
 
     const board_t *b = board_get();
     const char *line1 = "SmartKeyboard";
-    const char *line3 = "BLE: pairing...";
     char        line2[40];
+    char        line3[40];
     snprintf(line2, sizeof(line2), "fw %s", FW_VERSION);
+    snprintf(line3, sizeof(line3), "%s: starting", hid_transport_name());
 
     int s = 3;  /* 3x = 24-px tall text */
     int gw = 8 * s;
@@ -70,10 +72,10 @@ static void splash(void)
     display_flush();
 }
 
-static void on_ble_status(const char *text, bool connected)
+static void on_hid_status(const char *text, bool connected)
 {
     ESP_LOGI(TAG, "%s", text);
-    keyboard_ui_set_ble_status(text, connected);
+    keyboard_ui_set_hid_status(text, connected);
 }
 
 void app_main(void)
@@ -99,8 +101,8 @@ void app_main(void)
     keyboard_ui_init();
     keyboard_ui_start_task();
 
-    /* 5. BLE. */
-    ble_hid_init(on_ble_status);
+    /* 5. HID transport (BLE or USB, per Kconfig). */
+    hid_init(on_hid_status);
 
     /* 6. Audio + narrator (no-ops on boards without speaker). */
     narrator_init();

@@ -4,7 +4,7 @@
  * Gamepad-event router.
  *
  * Reads gamepad_event_t from the gamepad_i2c queue, translates
- * them into UI / BLE-HID actions, and (optionally) pings the
+ * them into UI / HID actions, and (optionally) pings the
  * narrator on selection changes.
  *
  * Button mapping (configurable later via Kconfig / on-screen
@@ -33,7 +33,7 @@ extern "C" {
 
 /* Spawn the router task. `events` is the queue handle returned
  * by gamepad_i2c_start(). Must be called after keyboard_ui_init()
- * and ble_hid_init(). */
+* and hid_init(). */
 void input_router_start(QueueHandle_t events);
 
 #ifdef __cplusplus
