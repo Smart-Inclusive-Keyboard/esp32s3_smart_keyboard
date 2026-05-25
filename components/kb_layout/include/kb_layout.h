@@ -99,6 +99,29 @@ typedef struct {
 #define HID_USAGE_COMMA      0x36
 #define HID_USAGE_PERIOD     0x37
 #define HID_USAGE_SLASH      0x38
+#define HID_USAGE_CAPSLOCK   0x39
+#define HID_USAGE_F1         0x3A
+#define HID_USAGE_F2         0x3B
+#define HID_USAGE_F3         0x3C
+#define HID_USAGE_F4         0x3D
+#define HID_USAGE_F5         0x3E
+#define HID_USAGE_F6         0x3F
+#define HID_USAGE_F7         0x40
+#define HID_USAGE_F8         0x41
+#define HID_USAGE_F9         0x42
+#define HID_USAGE_F10        0x43
+#define HID_USAGE_F11        0x44
+#define HID_USAGE_F12        0x45
+#define HID_USAGE_INSERT     0x49
+#define HID_USAGE_HOME       0x4A
+#define HID_USAGE_PAGEUP     0x4B
+#define HID_USAGE_DELETE     0x4C
+#define HID_USAGE_END        0x4D
+#define HID_USAGE_PAGEDOWN   0x4E
+#define HID_USAGE_RIGHT      0x4F
+#define HID_USAGE_LEFT       0x50
+#define HID_USAGE_DOWN       0x51
+#define HID_USAGE_UP         0x52
 
 #define KB_KEY_SPECIAL_NONE      0
 #define KB_KEY_SPECIAL_BACKSPACE 1
@@ -106,6 +129,13 @@ typedef struct {
 #define KB_KEY_SPECIAL_SPACE     3
 #define KB_KEY_SPECIAL_TAB       4
 #define KB_KEY_SPECIAL_ESC       5
+/* Modifier / function / navigation / arrow keys all share one
+ * accent-color category; the visual style mirrors the "special"
+ * button face in the upstream Rust project. */
+#define KB_KEY_SPECIAL_MOD       6
+#define KB_KEY_SPECIAL_FN        7
+#define KB_KEY_SPECIAL_NAV       8
+#define KB_KEY_SPECIAL_ARROW     9
 
 /* External tables defined in src/layout_<lang>.c. */
 extern const kb_layout_t kb_layout_us;
