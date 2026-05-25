@@ -187,6 +187,29 @@ static void icon_space(int x, int y, int w, int h, uint16_t fg)
     display_fill_rect(x1 - bar_h + 1, by - tab_h + 1, bar_h, tab_h, fg);
 }
 
+static void icon_backspace(int x, int y, int w, int h, uint16_t fg)
+{
+    /* Left-pointing arrow with a horizontal stem -- the
+     * conventional Backspace glyph. Arrowhead is an isoceles
+     * triangle on the left; stem is a horizontal bar extending
+     * to the right edge. */
+    int stroke = h / 8; if (stroke < 1) stroke = 1;
+    int head_h = (h * 2) / 3; if (head_h < 4) head_h = h;
+    int head_w = head_h / 2 + 1;
+    int mid_y = y + h / 2;
+    int hy = mid_y - head_h / 2;
+    int hx = x + 1;
+    /* Arrowhead triangle pointing left. */
+    icon_fill_triangle(hx, hy, head_w, head_h, fg, 'L');
+    /* Stem from arrowhead base to the right edge, vertically centred. */
+    int stem_x0 = hx + head_w;
+    int stem_x1 = x + w - 1;
+    if (stem_x1 > stem_x0) {
+        display_fill_rect(stem_x0, mid_y - stroke / 2,
+                          stem_x1 - stem_x0 + 1, stroke, fg);
+    }
+}
+
 static void icon_enter(int x, int y, int w, int h, uint16_t fg)
 {
     /* Return-arrow: a horizontal stroke at mid-height running from
@@ -217,6 +240,7 @@ static bool key_uses_icon(const kb_key_t *k)
     if (!k) return false;
     if (k->special == KB_KEY_SPECIAL_SPACE) return true;
     if (k->special == KB_KEY_SPECIAL_ENTER) return true;
+    if (k->special == KB_KEY_SPECIAL_BACKSPACE) return true;
     switch (k->hid_usage) {
     case HID_USAGE_UP: case HID_USAGE_DOWN:
     case HID_USAGE_LEFT: case HID_USAGE_RIGHT:
@@ -238,6 +262,10 @@ static void draw_key_icon(const kb_key_t *k, int x, int y,
     }
     if (k->special == KB_KEY_SPECIAL_ENTER) {
         icon_enter(ix, iy, iw, ih, fg);
+        return;
+    }
+    if (k->special == KB_KEY_SPECIAL_BACKSPACE) {
+        icon_backspace(ix, iy, iw, ih, fg);
         return;
     }
     char dir = 0;
@@ -310,9 +338,18 @@ static void draw_keyboard(const theme_t *th)
              * pick the largest 8x8 scale (capped by max_scale) that
              * leaves a small horizontal margin. Single-glyph keys
              * therefore stay big, while "Caps" / "Bksp" / "PgUp"
-             * drop down to a smaller, fully readable size. */
+             * drop down to a smaller, fully readable size.
+             *
+             * Function keys (F1..F12) all use the same reference
+             * width of 3 chars so that F1..F9 render at the same
+             * scale as F10..F12 -- the row looks uniform instead
+             * of having two visually distinct tiers. */
             int lbl_len = (int)strlen(lbl);
-            int fit_scale = (cell_w - 2) / (lbl_len * 8);
+            int fit_len = lbl_len;
+            if (k->special == KB_KEY_SPECIAL_FN && fit_len < 3) {
+                fit_len = 3;
+            }
+            int fit_scale = (cell_w - 2) / (fit_len * 8);
             if (fit_scale < 1) fit_scale = 1;
             int scale = fit_scale < max_scale ? fit_scale : max_scale;
             int gw = 8 * scale;
