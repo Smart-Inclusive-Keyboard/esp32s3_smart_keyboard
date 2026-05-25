@@ -62,6 +62,13 @@ keyboard_ui_mode_t keyboard_ui_get_mode(void);
  * state change you want reflected on screen. */
 void keyboard_ui_request_redraw(void);
 
+/* Synchronously redraw the keyboard and flush it to the panel
+ * from the calling context (no UI task required). Used at boot
+ * so the keyboard is visible BEFORE long-running peripheral
+ * init (HID, gamepad) starts. Safe to call before
+ * keyboard_ui_start_task(). */
+void keyboard_ui_redraw_now(void);
+
 /* The UI task pump. Spawned from app_main(); takes redraw
  * requests off a queue and walks display_*. */
 void keyboard_ui_start_task(void);

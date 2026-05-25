@@ -2,17 +2,23 @@
  * esp32-smart-keyboard / main
  *
  * Boot sequence:
- *   1. nvs_flash_init()  -- needed by BLE bonding + UI prefs
- *   2. board_init()      -- panel reset, capability surface
- *   3. display_init()    -- framebuffer + AXS15231B QSPI driver
+ *   1. nvs_flash_init()        -- needed by BLE bonding + UI prefs
+ *   2. board_init()            -- panel reset, capability surface
+ *   3. display_init()          -- framebuffer + AXS15231B QSPI driver
  *   4. Splash screen
- *   5. keyboard_ui_init() + start UI task
- *   6. hid_init()        -- BLE (NimBLE) or USB (TinyUSB), per
- *                           CONFIG_SK_HID_TRANSPORT_*
- *   7. narrator_init()   -- audio backend if available
- *   8. gamepad_i2c_start() or gamepad_spi_start()
- *      (depending on CONFIG_SK_GAMEPAD_TRANSPORT)
- *   9. input_router_start()
+ *   5. keyboard_ui_init()      -- UI state, NVS-persisted prefs
+ *   6. keyboard_ui_redraw_now()-- paint the virtual keyboard NOW,
+ *                                 so the user sees it before the
+ *                                 (potentially slow) HID / gamepad
+ *                                 bring-up begins
+ *   7. hid_init()              -- BLE (NimBLE) or USB (TinyUSB), per
+ *                                 CONFIG_SK_HID_TRANSPORT_*
+ *   8. narrator_init()         -- audio backend if available
+ *   9. gamepad_i2c_start() or gamepad_spi_start()
+ *                                 (depending on CONFIG_SK_GAMEPAD_TRANSPORT)
+ *  10. input_router_start()
+ *  11. keyboard_ui_start_task()-- async redraw pump for subsequent
+ *                                 state changes
  */
 
 #include <stdio.h>
@@ -97,9 +103,18 @@ void app_main(void)
     splash();
     vTaskDelay(pdMS_TO_TICKS(1200));
 
-    /* 4. UI. */
+    /* 4. UI state + initial paint of the virtual keyboard.
+     *
+     * We deliberately render the keyboard SYNCHRONOUSLY here, BEFORE
+     * starting HID and gamepad, so the user sees a visible UI even
+     * if those subsystems take noticeable time to come up (BLE
+     * advertising, USB enumeration, gamepad I2C/SPI handshakes can
+     * each take hundreds of ms, and a hung peripheral would
+     * otherwise leave the panel showing only the splash). The async
+     * redraw task is started afterwards to handle subsequent state
+     * changes. */
     keyboard_ui_init();
-    keyboard_ui_start_task();
+    keyboard_ui_redraw_now();
 
     /* 5. HID transport (BLE or USB, per Kconfig). */
     hid_init(on_hid_status);
@@ -114,6 +129,10 @@ void app_main(void)
     QueueHandle_t q = gamepad_i2c_start();
 #endif
     input_router_start(q);
+
+    /* 8. Async UI redraw pump for state changes driven by HID
+     * status callbacks and gamepad input. */
+    keyboard_ui_start_task();
 
     ESP_LOGI(TAG, "boot complete; firmware %s on %s",
              FW_VERSION, board_get()->name);
