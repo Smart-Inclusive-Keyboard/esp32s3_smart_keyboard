@@ -156,6 +156,30 @@ void display_draw_string(int x, int y, const char *s, int scale,
     }
 }
 
+void display_draw_char_10x20(int x, int y, char c,
+                             uint16_t fg, uint16_t bg, bool transparent)
+{
+    for (int py = 0; py < FONT10X20_H; ++py) {
+        for (int px = 0; px < FONT10X20_W; ++px) {
+            if (font_pixel_10x20(c, px, py)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_string_10x20(int x, int y, const char *s,
+                               uint16_t fg, uint16_t bg, bool transparent)
+{
+    if (!s) return;
+    for (int i = 0; s[i] != '\0'; ++i) {
+        display_draw_char_10x20(x + i * FONT10X20_W, y, s[i],
+                                fg, bg, transparent);
+    }
+}
+
 void display_flush(void)
 {
     if (!s_be.flush) return;

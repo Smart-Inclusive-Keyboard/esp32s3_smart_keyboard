@@ -58,6 +58,15 @@ void display_draw_char(int x, int y, char c, int scale,
 void display_draw_string(int x, int y, const char *s, int scale,
                          uint16_t fg, uint16_t bg, bool transparent);
 
+/* Higher-resolution 10x20 variants for single-letter key labels.
+ * Glyphs are drawn at their native 10x20 size (no scaling); the
+ * extra source-pixel density gives noticeably smoother edges than
+ * the integer-scaled 8x8 font at comparable on-screen sizes. */
+void display_draw_char_10x20(int x, int y, char c,
+                             uint16_t fg, uint16_t bg, bool transparent);
+void display_draw_string_10x20(int x, int y, const char *s,
+                               uint16_t fg, uint16_t bg, bool transparent);
+
 /* Push the framebuffer's dirty bounding box to the panel. The
  * backend internally tracks the bbox; pixel-setting calls expand
  * it. Returns when DMA completes. */

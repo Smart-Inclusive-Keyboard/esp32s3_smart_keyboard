@@ -24,10 +24,36 @@ extern "C" {
 #define FONT_BASE_W 8
 #define FONT_BASE_H 8
 
+/* Native dimensions of the higher-resolution font used for
+ * single-glyph key labels (X11 misc-fixed 10x20, public domain). */
+#define FONT10X20_W 10
+#define FONT10X20_H 20
+
 /* Returns the 8 row bytes for ASCII character c, or the glyph for
  * '?' if c is outside 0x20..0x7E. The returned pointer is valid
  * for the lifetime of the process. */
 const uint8_t *font_glyph_8x8(char c);
+
+/* Returns the 40 raw bytes (20 rows of 2 bytes, MSB = leftmost
+ * pixel, bit 7 of byte0 = col 0, bit 6 of byte1 = col 9) for the
+ * 10x20 glyph of ASCII character c, or '?' if out of range. The
+ * returned pointer is valid for the lifetime of the process. */
+const uint8_t *font_glyph_10x20(char c);
+
+/* True if bit (col, row) of the 10x20 glyph for c is set.
+ * col in [0, 9], row in [0, 19]. */
+static inline bool font_pixel_10x20(char c, int col, int row)
+{
+    if (col < 0 || col >= FONT10X20_W ||
+        row < 0 || row >= FONT10X20_H) {
+        return false;
+    }
+    const uint8_t *g = font_glyph_10x20(c);
+    /* Stored MSB-first across the two-byte row; col 0 = bit 7 of
+     * byte 0, col 8 = bit 7 of byte 1, col 9 = bit 6 of byte 1. */
+    uint16_t row_bits = ((uint16_t)g[row * 2] << 8) | g[row * 2 + 1];
+    return (row_bits >> (15 - col)) & 1;
+}
 
 /* True if bit (col, row) of the 8x8 glyph for c is set.
  * col in [0,7], row in [0,7]. */
