@@ -4,3 +4,4 @@
 void narrator_init(void)                          { }
 void narrator_speak_selection(void)               { }
 void narrator_speak_hid(unsigned hid_usage)       { (void)hid_usage; }
+void narrator_speak_key(const kb_key_t *key)      { (void)key; }

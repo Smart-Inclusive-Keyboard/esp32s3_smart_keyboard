@@ -23,9 +23,10 @@ parity with that project whenever the platform allows -- the
 keyboard layouts, button mappings and narrator vocabulary all
 come from there.
 
-Default hardware: **Waveshare ESP32-S3-Touch-LCD-3.49**
-(172 x 640 IPS, AXS15231B QSPI controller, ESP32-S3 + 16 MB
-flash + 8 MB octal PSRAM, on-board ES8311 codec + speaker).
+Default hardware: **Waveshare ESP32-S3-Touch-LCD-3.5B**
+(320 x 480 IPS, AXS15231B QSPI controller, ESP32-S3 + 16 MB
+flash + 8 MB octal PSRAM, on-board ES8311 codec + speaker,
+capacitive touchscreen).
 
 ## Architecture / component map
 
@@ -89,7 +90,7 @@ There is currently no automated test or lint suite. Validate
 changes by:
 
 1. Building for `esp32s3` with the default board
-   (`CONFIG_SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349=y`).
+   (`CONFIG_SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B=y`).
 2. If touching the HID transport, building once with
    `CONFIG_SK_HID_TRANSPORT_BLE=y` and once with
    `CONFIG_SK_HID_TRANSPORT_USB=y` (the relevant transport

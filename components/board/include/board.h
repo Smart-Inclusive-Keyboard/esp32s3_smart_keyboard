@@ -59,11 +59,63 @@ typedef struct {
     int lrck;
     int dout;
     int mclk;          /* master clock out, -1 when unused (codecs
-                        * like the ES8311 on the Waveshare 3.49
+                        * like the ES8311 on the Waveshare 3.5B
                         * board need it; bare DACs like MAX98357A
                         * do not)                                  */
     int port;          /* I2S port number */
 } board_i2s_t;
+
+/*
+ * Optional I2C-controlled audio codec attached to the I2S TX
+ * path. Populated only when BOARD_HAS_CODEC_ES8311 is selected;
+ * otherwise i2c_port is -1 and the audio component skips codec
+ * bring-up and assumes a bare-DAC speaker path.
+ *
+ * On the Waveshare 3.5B the codec I2C bus is physically shared
+ * with the capacitive touch controller (SDA = 8, SCL = 7), so
+ * the audio component creates the bus and the touchscreen
+ * component re-acquires it via i2c_master_get_bus_handle().
+ */
+typedef struct {
+    int     i2c_port;
+    int     sda;
+    int     scl;
+    uint8_t addr;       /* 7-bit codec I2C address (ES8311 = 0x18) */
+    int     freq_hz;    /* I2C clock (codec accepts up to 400 kHz)  */
+    int     pa_pin;     /* class-D PA enable pin, -1 if not wired   */
+} board_codec_t;
+
+/*
+ * Optional capacitive touchscreen overlay attached to the LCD.
+ *
+ * Populated only when CONFIG_BOARD_HAS_TOUCH is selected for the
+ * chosen board; otherwise the pins are -1 and the touchscreen
+ * component compiles to a no-op.
+ *
+ * The controller speaks the AXS5106-family "magic packet" I2C
+ * protocol (the same chip family that drives the AXS15231B
+ * display on the Waveshare 3.5B board). Coordinates the
+ * controller reports are in panel-native orientation; the
+ * mirror_x / mirror_y / swap_xy / native_w / native_h fields
+ * map them onto the logical (post-rotation) framebuffer that
+ * the display backend exposes via display_width() /
+ * display_height().
+ */
+typedef struct {
+    int     i2c_port;   /* I2C peripheral number (separate from
+                         * the gamepad bus to avoid pin clashes) */
+    int     sda;
+    int     scl;
+    int     intr;       /* INT line, -1 if not wired              */
+    int     rst;        /* RST line, -1 if not wired              */
+    uint8_t addr;       /* 7-bit I2C address (AXS5106 = 0x3B)     */
+    int     freq_hz;    /* I2C clock                               */
+    int     native_w;   /* controller's native pixel width        */
+    int     native_h;   /* controller's native pixel height       */
+    bool    mirror_x;   /* flip raw X before mapping to logical   */
+    bool    mirror_y;   /* flip raw Y before mapping to logical   */
+    bool    swap_xy;    /* swap axes (apply after mirror_*)       */
+} board_touch_t;
 
 typedef struct {
     const char         *name;            /* human-readable board id   */
@@ -90,6 +142,14 @@ typedef struct {
 
     /* Optional I2S audio output (only valid when CONFIG_BOARD_HAS_SPEAKER). */
     board_i2s_t i2s;
+
+    /* Optional I2C-controlled codec (only valid when
+     * CONFIG_BOARD_HAS_CODEC_ES8311). */
+    board_codec_t codec;
+
+    /* Optional capacitive touchscreen (only valid when
+     * CONFIG_BOARD_HAS_TOUCH). */
+    board_touch_t touch;
 
     /* Optional battery ADC channel (only valid when CONFIG_BOARD_HAS_BATTERY).
      * < 0 when not implemented. */

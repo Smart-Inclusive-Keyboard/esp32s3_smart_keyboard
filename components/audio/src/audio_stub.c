@@ -8,3 +8,4 @@ int  audio_play_wav(const void *data, size_t len)      { (void)data; (void)len; 
 void audio_stop(void)                                  { }
 void audio_set_volume(int percent)                     { (void)percent; }
 bool audio_is_playing(void)                            { return false; }
+void audio_play_startup_tune(void)                     { }

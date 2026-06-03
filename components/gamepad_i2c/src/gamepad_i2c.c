@@ -20,18 +20,18 @@
 #include "sdkconfig.h"
 
 static const char *s_names[GP_BTN_COUNT] = {
-    [GP_BTN_UP]     = "UP",
-    [GP_BTN_DOWN]   = "DOWN",
-    [GP_BTN_LEFT]   = "LEFT",
-    [GP_BTN_RIGHT]  = "RIGHT",
-    [GP_BTN_A]      = "A",
-    [GP_BTN_B]      = "B",
-    [GP_BTN_X]      = "X",
-    [GP_BTN_Y]      = "Y",
-    [GP_BTN_L]      = "L",
-    [GP_BTN_R]      = "R",
-    [GP_BTN_SELECT] = "SELECT",
-    [GP_BTN_START]  = "START",
+    [GP_BTN_UP]    = "UP",
+    [GP_BTN_DOWN]  = "DOWN",
+    [GP_BTN_LEFT]  = "LEFT",
+    [GP_BTN_RIGHT] = "RIGHT",
+    [GP_BTN_1]     = "1",
+    [GP_BTN_2]     = "2",
+    [GP_BTN_3]     = "3",
+    [GP_BTN_4]     = "4",
+    [GP_BTN_5]     = "5",
+    [GP_BTN_6]     = "6",
+    [GP_BTN_7]     = "7",
+    [GP_BTN_8]     = "8",
 };
 
 const char *gamepad_button_name(gamepad_button_t b)
@@ -79,15 +79,15 @@ static uint32_t gamepad_parse_report(const uint8_t *r)
     if (y >  dz) s |= 1u << GP_BTN_DOWN;
     if (y < -dz) s |= 1u << GP_BTN_UP;
 
-    if (face & 0x01) s |= 1u << GP_BTN_A;
-    if (face & 0x02) s |= 1u << GP_BTN_B;
-    if (face & 0x04) s |= 1u << GP_BTN_X;
-    if (face & 0x08) s |= 1u << GP_BTN_Y;
+    if (face & 0x01) s |= 1u << GP_BTN_1;
+    if (face & 0x02) s |= 1u << GP_BTN_2;
+    if (face & 0x04) s |= 1u << GP_BTN_3;
+    if (face & 0x08) s |= 1u << GP_BTN_4;
 
-    if (aux & 0x01) s |= 1u << GP_BTN_L;
-    if (aux & 0x02) s |= 1u << GP_BTN_R;
-    if (aux & 0x04) s |= 1u << GP_BTN_SELECT;
-    if (aux & 0x08) s |= 1u << GP_BTN_START;
+    if (aux & 0x01) s |= 1u << GP_BTN_5;
+    if (aux & 0x02) s |= 1u << GP_BTN_6;
+    if (aux & 0x04) s |= 1u << GP_BTN_7;
+    if (aux & 0x08) s |= 1u << GP_BTN_8;
 
     return s;
 }

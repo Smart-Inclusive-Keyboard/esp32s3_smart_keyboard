@@ -37,6 +37,7 @@ const board_t g_board = {
     .spi_cs   = -1, .spi_freq_hz = 0, .spi_mode = 0,
 #endif
     .i2s = { .bclk = -1, .lrck = -1, .dout = -1, .mclk = -1, .port = 0 },
+    .codec = { .i2c_port = -1, .sda = -1, .scl = -1, .addr = 0, .freq_hz = 0, .pa_pin = -1 },
     .battery_adc_channel = -1,
 };
 

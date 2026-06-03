@@ -40,6 +40,8 @@
 #include "input_router.h"
 #include "hid.h"
 #include "narrator.h"
+#include "touchscreen.h"
+#include "audio.h"
 
 static const char *TAG = "main";
 
@@ -84,6 +86,11 @@ static void on_hid_status(const char *text, bool connected)
     keyboard_ui_set_hid_status(text, connected);
 }
 
+static void on_touch_tap(int x, int y)
+{
+    keyboard_ui_tap(x, y);
+}
+
 void app_main(void)
 {
     /* 1. NVS. */
@@ -119,8 +126,13 @@ void app_main(void)
     /* 5. HID transport (BLE or USB, per Kconfig). */
     hid_init(on_hid_status);
 
-    /* 6. Audio + narrator (no-ops on boards without speaker). */
+    /* 6. Audio + narrator (no-ops on boards without speaker).
+     *    Immediately after bring-up, play a short procedural
+     *    chime so the user can hear that the speaker path is
+     *    operational without waiting for the first narrated
+     *    keystroke. Stubbed on boards without a speaker. */
     narrator_init();
+    audio_play_startup_tune();
 
     /* 7. Gamepad + router. */
 #if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
@@ -129,6 +141,11 @@ void app_main(void)
     QueueHandle_t q = gamepad_i2c_start();
 #endif
     input_router_start(q);
+
+    /* 7b. Optional touchscreen (no-op on boards without one). */
+    if (touchscreen_init()) {
+        touchscreen_start(on_touch_tap);
+    }
 
     /* 8. Async UI redraw pump for state changes driven by HID
      * status callbacks and gamepad input. */

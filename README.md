@@ -12,9 +12,9 @@ optional narrator speaks each letter as the user navigates.
 
 ## Status
 
-Work in progress. The first supported board is the
-**Waveshare ESP32-S3-Touch-LCD-3.49** (172x640 IPS, AXS15231B QSPI
-controller, ESP32-S3 + 16 MB flash + 8 MB octal PSRAM).
+Work in progress. The default supported board is the
+**Waveshare ESP32-S3-Touch-LCD-3.5B** (320x480 IPS, AXS15231B
+QSPI controller, ESP32-S3 + 16 MB flash + 8 MB octal PSRAM).
 Additional boards plug in via Kconfig.
 
 ## Quick start

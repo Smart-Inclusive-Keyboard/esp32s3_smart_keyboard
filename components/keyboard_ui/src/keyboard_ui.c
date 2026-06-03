@@ -9,10 +9,13 @@
  *   | key grid: rows x cols, selected cell highlighted         |
  *   +----------------------------------------------------------+
  *
- * The grid auto-sizes to (display_width / cols) x (display_height
- * - status_height) / rows. On the 640x172 Waveshare panel and
- * the US 14x5 layout that gives roughly 45x30-pixel cells with
- * 2x-scaled 8x8 glyphs centered inside.
+ * The key grid uses square cells sized to fit both axes
+ * (cell = min(width/cols, avail_h/rows)). Any leftover space
+ * after laying out the cells becomes equal margins on the
+ * sides -- typically vertical, since the panel is wider than
+ * tall. Single-character labels render with the higher-density
+ * 10x20 font; multi-character labels (F1..F12, Caps, Bksp,
+ * Esc, ...) fall back to integer-scaled 8x8 glyphs.
  *
  * Drawing happens on a FreeRTOS task driven by a redraw queue
  * so the input handlers can fire keyboard_ui_request_redraw()
@@ -36,6 +39,7 @@
 #include "fonts.h"
 #include "kb_layout.h"
 #include "hid.h"
+#include "narrator.h"
 
 static const char *TAG = "kb_ui";
 
@@ -286,19 +290,36 @@ static void draw_key_icon(const kb_key_t *k, int x, int y,
                        tw, th, fg, dir);
 }
 
-static void draw_keyboard(const theme_t *th)
+static bool grid_metrics(const kb_layout_t *l,
+                         int *out_cell, int *out_x_off, int *out_y_off)
 {
-    const kb_layout_t *l = kb_layout_active();
     int w = display_width();
     int h = display_height() - STATUS_BAR_H;
     int y0 = STATUS_BAR_H;
+
+    /* Square cells: pick the largest size that fits in both axes.
+     * Whatever space is left over (typically vertical -- the panel
+     * is wider than tall) becomes equal margins on either side. */
     int cell_w = w / l->cols;
     int cell_h = h / l->rows;
-    if (cell_w < 8 || cell_h < 8) return;  /* not enough room */
+    int cell = cell_w < cell_h ? cell_w : cell_h;
+    if (cell < 8) return false;
 
-    /* Largest 8x8-multiple that fits vertically -- upper bound on
-     * each cell's text scale. */
-    int max_scale = (cell_h - 4) / 8;
+    if (out_cell)  *out_cell  = cell;
+    if (out_x_off) *out_x_off = (w - cell * l->cols) / 2;
+    if (out_y_off) *out_y_off = y0 + (h - cell * l->rows) / 2;
+    return true;
+}
+
+static void draw_keyboard(const theme_t *th)
+{
+    const kb_layout_t *l = kb_layout_active();
+    int cell, x_off, y_off;
+    if (!grid_metrics(l, &cell, &x_off, &y_off)) return;
+
+    /* Largest 8x8-multiple that fits inside the cell -- upper bound
+     * on text scale for multi-character labels. */
+    int max_scale = (cell - 4) / 8;
     if (max_scale < 1) max_scale = 1;
     if (max_scale > 3) max_scale = 3;
 
@@ -306,8 +327,8 @@ static void draw_keyboard(const theme_t *th)
         for (int c = 0; c < l->cols; ++c) {
             const kb_key_t *k = kb_layout_key_at(l, r, c);
             if (!k) continue;
-            int x = c * cell_w;
-            int y = y0 + r * cell_h;
+            int x = x_off + c * cell;
+            int y = y_off + r * cell;
             bool selected = (r == s_st.sel_row && c == s_st.sel_col);
 
             uint16_t bg, fg;
@@ -322,10 +343,10 @@ static void draw_keyboard(const theme_t *th)
                 fg = th->key_label;
             }
 
-            display_fill_rect(x, y, cell_w, cell_h, bg);
+            display_fill_rect(x, y, cell, cell, bg);
 
             if (key_uses_icon(k)) {
-                draw_key_icon(k, x, y, cell_w, cell_h, fg);
+                draw_key_icon(k, x, y, cell, cell, fg);
                 continue;
             }
 
@@ -333,6 +354,21 @@ static void draw_keyboard(const theme_t *th)
                                & HID_MOD_LSHIFT)
                               ? k->label_shifted : k->label_unshifted;
             if (!lbl || !*lbl) continue;
+
+            int lbl_len = (int)strlen(lbl);
+
+            /* Single-glyph labels get the finer 10x20 font so the
+             * letters/digits/punctuation that dominate the grid
+             * look smooth instead of chunky. Multi-character
+             * labels (Esc, Caps, Bksp, F1..F12) stay on the 8x8
+             * font with the same fit-to-cell logic as before. */
+            if (lbl_len == 1 &&
+                cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+                int tx = x + (cell - FONT10X20_W) / 2;
+                int ty = y + (cell - FONT10X20_H) / 2;
+                display_draw_char_10x20(tx, ty, lbl[0], fg, bg, true);
+                continue;
+            }
 
             /* Shrink multi-letter labels so they fit the cell:
              * pick the largest 8x8 scale (capped by max_scale) that
@@ -344,17 +380,16 @@ static void draw_keyboard(const theme_t *th)
              * width of 3 chars so that F1..F9 render at the same
              * scale as F10..F12 -- the row looks uniform instead
              * of having two visually distinct tiers. */
-            int lbl_len = (int)strlen(lbl);
             int fit_len = lbl_len;
             if (k->special == KB_KEY_SPECIAL_FN && fit_len < 3) {
                 fit_len = 3;
             }
-            int fit_scale = (cell_w - 2) / (fit_len * 8);
+            int fit_scale = (cell - 2) / (fit_len * 8);
             if (fit_scale < 1) fit_scale = 1;
             int scale = fit_scale < max_scale ? fit_scale : max_scale;
             int gw = 8 * scale;
-            int tx = x + (cell_w - lbl_len * gw) / 2;
-            int ty = y + (cell_h - gw) / 2;
+            int tx = x + (cell - lbl_len * gw) / 2;
+            int ty = y + (cell - gw) / 2;
             display_draw_string(tx, ty, lbl, scale, fg, bg, true);
         }
     }
@@ -487,6 +522,35 @@ void keyboard_ui_press_current(void)
     keyboard_ui_request_redraw();
 }
 
+void keyboard_ui_tap(int x, int y)
+{
+    /* Touch input only acts on the key grid in keyboard mode --
+     * in mouse mode the keyboard area is repurposed for cursor
+     * indicators and there is nothing to "press". */
+    if (s_st.mode != KB_MODE_KEYBOARD) return;
+    if (y < STATUS_BAR_H) return;
+
+    const kb_layout_t *l = kb_layout_active();
+    int cell, x_off, y_off;
+    if (!grid_metrics(l, &cell, &x_off, &y_off)) return;
+
+    int col = (x - x_off) / cell;
+    int row = (y - y_off) / cell;
+    if (row < 0 || row >= l->rows) return;
+    if (col < 0 || col >= l->cols) return;
+
+    const kb_key_t *k = kb_layout_key_at(l, row, col);
+    if (!k) return;  /* empty / spacer cell */
+
+    s_st.sel_row = row;
+    s_st.sel_col = col;
+    /* Speak the tapped key the same way navigation does -- the
+     * narrator otherwise wouldn't react to touch input because
+     * the touch path bypasses input_router. */
+    narrator_speak_selection();
+    keyboard_ui_press_current();  /* also requests a redraw */
+}
+
 void keyboard_ui_set_hid_status(const char *text, bool connected)
 {
     s_st.hid_connected = connected;
@@ -518,6 +582,12 @@ int keyboard_ui_selected_hid_usage(void)
     const kb_layout_t *l = kb_layout_active();
     const kb_key_t *k = kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
     return k ? k->hid_usage : HID_USAGE_NONE;
+}
+
+const kb_key_t *keyboard_ui_selected_key(void)
+{
+    const kb_layout_t *l = kb_layout_active();
+    return kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
 }
 
 void keyboard_ui_cycle_layout(void)

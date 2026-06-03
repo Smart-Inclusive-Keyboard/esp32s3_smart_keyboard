@@ -50,6 +50,14 @@ void audio_set_volume(int percent);
 /* True if a clip is currently playing. */
 bool audio_is_playing(void);
 
+/*
+ * Play a short procedurally-generated arpeggio (~0.3 s) intended
+ * as a "speaker is alive" chime at boot. No external WAV asset
+ * required. Audible only when CONFIG_BOARD_HAS_PSRAM &&
+ * CONFIG_BOARD_HAS_SPEAKER; otherwise a no-op.
+ */
+void audio_play_startup_tune(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,6 +16,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "kb_layout.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,6 +49,12 @@ void keyboard_ui_oneshot_mod(uint8_t mod);
  * pair to the host via hid_send_key(). */
 void keyboard_ui_press_current(void);
 
+/* Touchscreen tap at framebuffer coordinates (x, y). If the
+ * point hits a non-empty cell of the active layout, the
+ * selection moves there and the key is pressed. Tap is ignored
+ * outside the key grid, in the status bar, or in mouse mode. */
+void keyboard_ui_tap(int x, int y);
+
 /* Status-bar updates from outside. The strings are copied. */
 void keyboard_ui_set_hid_status(const char *text, bool connected);
 void keyboard_ui_set_passkey(uint32_t passkey);
@@ -76,6 +84,12 @@ void keyboard_ui_start_task(void);
 /* HID usage of the currently selected cell (HID_USAGE_NONE if
  * the cell is empty). Exposed for the narrator. */
 int keyboard_ui_selected_hid_usage(void);
+
+/* Currently selected key cell (NULL if out of bounds). Exposed
+ * for the narrator so it can speak modifier keys (Shift / Ctrl /
+ * Alt / Win / AGr) which all share HID_USAGE_NONE in the layout
+ * and therefore can't be told apart by HID usage alone. */
+const kb_key_t *keyboard_ui_selected_key(void);
 
 /* Cycle to the next built-in keyboard layout (US -> DE -> FR ->
  * UA -> US). Persists the choice in NVS. */
