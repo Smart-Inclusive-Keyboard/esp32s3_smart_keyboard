@@ -65,6 +65,38 @@ typedef struct {
     int port;          /* I2S port number */
 } board_i2s_t;
 
+/*
+ * Optional capacitive touchscreen overlay attached to the LCD.
+ *
+ * Populated only when CONFIG_BOARD_HAS_TOUCH is selected for the
+ * chosen board; otherwise the pins are -1 and the touchscreen
+ * component compiles to a no-op.
+ *
+ * The controller speaks the AXS5106-family "magic packet" I2C
+ * protocol (the same chip family that drives the AXS15231B
+ * display on the Waveshare 3.49 board). Coordinates the
+ * controller reports are in panel-native orientation; the
+ * mirror_x / mirror_y / swap_xy / native_w / native_h fields
+ * map them onto the logical (post-rotation) framebuffer that
+ * the display backend exposes via display_width() /
+ * display_height().
+ */
+typedef struct {
+    int     i2c_port;   /* I2C peripheral number (separate from
+                         * the gamepad bus to avoid pin clashes) */
+    int     sda;
+    int     scl;
+    int     intr;       /* INT line, -1 if not wired              */
+    int     rst;        /* RST line, -1 if not wired              */
+    uint8_t addr;       /* 7-bit I2C address (AXS5106 = 0x3B)     */
+    int     freq_hz;    /* I2C clock                               */
+    int     native_w;   /* controller's native pixel width        */
+    int     native_h;   /* controller's native pixel height       */
+    bool    mirror_x;   /* flip raw X before mapping to logical   */
+    bool    mirror_y;   /* flip raw Y before mapping to logical   */
+    bool    swap_xy;    /* swap axes (apply after mirror_*)       */
+} board_touch_t;
+
 typedef struct {
     const char         *name;            /* human-readable board id   */
     board_display_type_t display_type;
@@ -90,6 +122,10 @@ typedef struct {
 
     /* Optional I2S audio output (only valid when CONFIG_BOARD_HAS_SPEAKER). */
     board_i2s_t i2s;
+
+    /* Optional capacitive touchscreen (only valid when
+     * CONFIG_BOARD_HAS_TOUCH). */
+    board_touch_t touch;
 
     /* Optional battery ADC channel (only valid when CONFIG_BOARD_HAS_BATTERY).
      * < 0 when not implemented. */

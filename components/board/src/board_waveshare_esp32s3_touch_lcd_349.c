@@ -120,6 +120,32 @@ const board_t g_board = {
         .dout = 45,
         .port = 0,
     },
+    .touch = {
+        /* AXS5106-family capacitive touch controller wired to a
+         * dedicated I2C bus on GPIO 17 (SDA) / GPIO 18 (SCL).
+         * INT and RST are not broken out on this board (the
+         * Waveshare official driver also leaves both at -1 and
+         * relies on polling instead of an INT IRQ).
+         *
+         * The controller reports coordinates in landscape pixels
+         * (640w x 172h) but with both axes flipped relative to
+         * the LCD scan-out: Waveshare's USER_DISP_ROT_90 handler
+         * remaps point.x = LCD_H_RES - rawX, point.y = LCD_V_RES
+         * - rawY, which is exactly the (mirror_x = mirror_y = 1,
+         * swap_xy = 0) combination we apply in touchscreen.c. */
+        .i2c_port = 1,
+        .sda      = 17,
+        .scl      = 18,
+        .intr     = -1,
+        .rst      = -1,
+        .addr     = 0x3B,
+        .freq_hz  = 400000,
+        .native_w = 640,
+        .native_h = 172,
+        .mirror_x = true,
+        .mirror_y = true,
+        .swap_xy  = false,
+    },
     .battery_adc_channel = -1,
 };
 

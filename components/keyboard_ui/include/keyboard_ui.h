@@ -47,6 +47,12 @@ void keyboard_ui_oneshot_mod(uint8_t mod);
  * pair to the host via hid_send_key(). */
 void keyboard_ui_press_current(void);
 
+/* Touchscreen tap at framebuffer coordinates (x, y). If the
+ * point hits a non-empty cell of the active layout, the
+ * selection moves there and the key is pressed. Tap is ignored
+ * outside the key grid, in the status bar, or in mouse mode. */
+void keyboard_ui_tap(int x, int y);
+
 /* Status-bar updates from outside. The strings are copied. */
 void keyboard_ui_set_hid_status(const char *text, bool connected);
 void keyboard_ui_set_passkey(uint32_t passkey);

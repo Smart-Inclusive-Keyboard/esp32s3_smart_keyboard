@@ -40,6 +40,7 @@
 #include "input_router.h"
 #include "hid.h"
 #include "narrator.h"
+#include "touchscreen.h"
 
 static const char *TAG = "main";
 
@@ -82,6 +83,11 @@ static void on_hid_status(const char *text, bool connected)
 {
     ESP_LOGI(TAG, "%s", text);
     keyboard_ui_set_hid_status(text, connected);
+}
+
+static void on_touch_tap(int x, int y)
+{
+    keyboard_ui_tap(x, y);
 }
 
 void app_main(void)
@@ -129,6 +135,11 @@ void app_main(void)
     QueueHandle_t q = gamepad_i2c_start();
 #endif
     input_router_start(q);
+
+    /* 7b. Optional touchscreen (no-op on boards without one). */
+    if (touchscreen_init()) {
+        touchscreen_start(on_touch_tap);
+    }
 
     /* 8. Async UI redraw pump for state changes driven by HID
      * status callbacks and gamepad input. */

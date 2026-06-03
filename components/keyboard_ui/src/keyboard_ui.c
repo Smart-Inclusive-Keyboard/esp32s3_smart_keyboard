@@ -289,9 +289,9 @@ static void draw_key_icon(const kb_key_t *k, int x, int y,
                        tw, th, fg, dir);
 }
 
-static void draw_keyboard(const theme_t *th)
+static bool grid_metrics(const kb_layout_t *l,
+                         int *out_cell, int *out_x_off, int *out_y_off)
 {
-    const kb_layout_t *l = kb_layout_active();
     int w = display_width();
     int h = display_height() - STATUS_BAR_H;
     int y0 = STATUS_BAR_H;
@@ -302,10 +302,19 @@ static void draw_keyboard(const theme_t *th)
     int cell_w = w / l->cols;
     int cell_h = h / l->rows;
     int cell = cell_w < cell_h ? cell_w : cell_h;
-    if (cell < 8) return;  /* not enough room */
+    if (cell < 8) return false;
 
-    int x_off = (w - cell * l->cols) / 2;
-    int y_off = y0 + (h - cell * l->rows) / 2;
+    if (out_cell)  *out_cell  = cell;
+    if (out_x_off) *out_x_off = (w - cell * l->cols) / 2;
+    if (out_y_off) *out_y_off = y0 + (h - cell * l->rows) / 2;
+    return true;
+}
+
+static void draw_keyboard(const theme_t *th)
+{
+    const kb_layout_t *l = kb_layout_active();
+    int cell, x_off, y_off;
+    if (!grid_metrics(l, &cell, &x_off, &y_off)) return;
 
     /* Largest 8x8-multiple that fits inside the cell -- upper bound
      * on text scale for multi-character labels. */
@@ -510,6 +519,31 @@ void keyboard_ui_press_current(void)
     hid_release_all();
     s_st.mod_oneshot = 0;
     keyboard_ui_request_redraw();
+}
+
+void keyboard_ui_tap(int x, int y)
+{
+    /* Touch input only acts on the key grid in keyboard mode --
+     * in mouse mode the keyboard area is repurposed for cursor
+     * indicators and there is nothing to "press". */
+    if (s_st.mode != KB_MODE_KEYBOARD) return;
+    if (y < STATUS_BAR_H) return;
+
+    const kb_layout_t *l = kb_layout_active();
+    int cell, x_off, y_off;
+    if (!grid_metrics(l, &cell, &x_off, &y_off)) return;
+
+    int col = (x - x_off) / cell;
+    int row = (y - y_off) / cell;
+    if (row < 0 || row >= l->rows) return;
+    if (col < 0 || col >= l->cols) return;
+
+    const kb_key_t *k = kb_layout_key_at(l, row, col);
+    if (!k) return;  /* empty / spacer cell */
+
+    s_st.sel_row = row;
+    s_st.sel_col = col;
+    keyboard_ui_press_current();  /* also requests a redraw */
 }
 
 void keyboard_ui_set_hid_status(const char *text, bool connected)
