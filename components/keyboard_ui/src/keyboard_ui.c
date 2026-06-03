@@ -132,6 +132,160 @@ static void draw_status_bar(const theme_t *th)
     }
 }
 
+/* ----- Icon glyphs ----- */
+/*
+ * Symbolic icons drawn directly via display_set_pixel so they
+ * don't need extra entries in the ASCII font table. Each helper
+ * fills the supplied (x, y, w, h) bbox with `bg`, then paints the
+ * symbol in `fg`. The bbox is the inner padded area of the key
+ * cell (a few pixels of margin removed by the caller).
+ */
+
+static void icon_fill_triangle(int x, int y, int w, int h,
+                               uint16_t fg, char dir)
+{
+    /* Solid isoceles triangle pointing in the given direction
+     * ('U' up, 'D' down, 'L' left, 'R' right), inscribed in the
+     * (w x h) bbox. */
+    if (dir == 'U' || dir == 'D') {
+        for (int row = 0; row < h; ++row) {
+            int frac = (dir == 'U') ? row : (h - 1 - row);
+            int half = (frac * (w / 2)) / (h > 1 ? h - 1 : 1);
+            int x0 = x + w / 2 - half;
+            int x1 = x + w / 2 + half;
+            for (int px = x0; px <= x1; ++px) {
+                display_set_pixel(px, y + row, fg);
+            }
+        }
+    } else {
+        for (int col = 0; col < w; ++col) {
+            int frac = (dir == 'L') ? col : (w - 1 - col);
+            int half = (frac * (h / 2)) / (w > 1 ? w - 1 : 1);
+            int y0 = y + h / 2 - half;
+            int y1 = y + h / 2 + half;
+            for (int py = y0; py <= y1; ++py) {
+                display_set_pixel(x + col, py, fg);
+            }
+        }
+    }
+}
+
+static void icon_space(int x, int y, int w, int h, uint16_t fg)
+{
+    /* Horizontal bar with short downward tabs at both ends -- the
+     * conventional space-bar glyph used by IDEs / editors. */
+    int bar_h = h / 6; if (bar_h < 1) bar_h = 1;
+    int tab_h = h / 4; if (tab_h < 2) tab_h = 2;
+    int margin = w / 8;
+    int x0 = x + margin;
+    int x1 = x + w - margin - 1;
+    int by = y + h - 1 - bar_h - 1;
+    /* horizontal bar */
+    display_fill_rect(x0, by, x1 - x0 + 1, bar_h, fg);
+    /* left + right tabs */
+    display_fill_rect(x0, by - tab_h + 1, bar_h, tab_h, fg);
+    display_fill_rect(x1 - bar_h + 1, by - tab_h + 1, bar_h, tab_h, fg);
+}
+
+static void icon_backspace(int x, int y, int w, int h, uint16_t fg)
+{
+    /* Left-pointing arrow with a horizontal stem -- the
+     * conventional Backspace glyph. Arrowhead is an isoceles
+     * triangle on the left; stem is a horizontal bar extending
+     * to the right edge. */
+    int stroke = h / 8; if (stroke < 1) stroke = 1;
+    int head_h = (h * 2) / 3; if (head_h < 4) head_h = h;
+    int head_w = head_h / 2 + 1;
+    int mid_y = y + h / 2;
+    int hy = mid_y - head_h / 2;
+    int hx = x + 1;
+    /* Arrowhead triangle pointing left. */
+    icon_fill_triangle(hx, hy, head_w, head_h, fg, 'L');
+    /* Stem from arrowhead base to the right edge, vertically centred. */
+    int stem_x0 = hx + head_w;
+    int stem_x1 = x + w - 1;
+    if (stem_x1 > stem_x0) {
+        display_fill_rect(stem_x0, mid_y - stroke / 2,
+                          stem_x1 - stem_x0 + 1, stroke, fg);
+    }
+}
+
+static void icon_enter(int x, int y, int w, int h, uint16_t fg)
+{
+    /* Return-arrow: a horizontal stroke at mid-height running from
+     * the right edge leftward, with a vertical drop to the right
+     * end, plus an arrowhead at the left tip. */
+    int stroke = h / 8; if (stroke < 1) stroke = 1;
+    int margin_x = w / 6;
+    int margin_y = h / 4;
+    int top = y + margin_y;
+    int mid_y = y + h - margin_y - 1;
+    int left_x = x + margin_x;
+    int right_x = x + w - margin_x - 1;
+    /* horizontal */
+    display_fill_rect(left_x, mid_y - stroke + 1,
+                      right_x - left_x + 1, stroke, fg);
+    /* vertical drop on the right */
+    display_fill_rect(right_x - stroke + 1, top,
+                      stroke, mid_y - top + 1, fg);
+    /* arrowhead at the left tip */
+    int head = h / 4; if (head < 2) head = 2;
+    icon_fill_triangle(left_x - head + 1, mid_y - head + 1,
+                       head, head * 2 - 1, fg, 'L');
+}
+
+/* True if this key should be drawn as an icon, not text. */
+static bool key_uses_icon(const kb_key_t *k)
+{
+    if (!k) return false;
+    if (k->special == KB_KEY_SPECIAL_SPACE) return true;
+    if (k->special == KB_KEY_SPECIAL_ENTER) return true;
+    if (k->special == KB_KEY_SPECIAL_BACKSPACE) return true;
+    switch (k->hid_usage) {
+    case HID_USAGE_UP: case HID_USAGE_DOWN:
+    case HID_USAGE_LEFT: case HID_USAGE_RIGHT:
+        return true;
+    default: return false;
+    }
+}
+
+static void draw_key_icon(const kb_key_t *k, int x, int y,
+                          int cell_w, int cell_h, uint16_t fg)
+{
+    int pad = 3;
+    int ix = x + pad, iy = y + pad;
+    int iw = cell_w - 2 * pad, ih = cell_h - 2 * pad;
+    if (iw < 4 || ih < 4) return;
+    if (k->special == KB_KEY_SPECIAL_SPACE) {
+        icon_space(ix, iy, iw, ih, fg);
+        return;
+    }
+    if (k->special == KB_KEY_SPECIAL_ENTER) {
+        icon_enter(ix, iy, iw, ih, fg);
+        return;
+    }
+    if (k->special == KB_KEY_SPECIAL_BACKSPACE) {
+        icon_backspace(ix, iy, iw, ih, fg);
+        return;
+    }
+    char dir = 0;
+    switch (k->hid_usage) {
+    case HID_USAGE_UP:    dir = 'U'; break;
+    case HID_USAGE_DOWN:  dir = 'D'; break;
+    case HID_USAGE_LEFT:  dir = 'L'; break;
+    case HID_USAGE_RIGHT: dir = 'R'; break;
+    default: return;
+    }
+    /* Triangles look balanced when slightly smaller than the
+     * padded cell, especially in the constrained-axis direction. */
+    int tw = iw * 2 / 3;
+    int th = ih * 2 / 3;
+    if (tw < 4) tw = iw;
+    if (th < 4) th = ih;
+    icon_fill_triangle(ix + (iw - tw) / 2, iy + (ih - th) / 2,
+                       tw, th, fg, dir);
+}
+
 static void draw_keyboard(const theme_t *th)
 {
     const kb_layout_t *l = kb_layout_active();
@@ -142,12 +296,11 @@ static void draw_keyboard(const theme_t *th)
     int cell_h = h / l->rows;
     if (cell_w < 8 || cell_h < 8) return;  /* not enough room */
 
-    /* Per-glyph scale: pick the largest 8x8-multiple that fits. */
-    int label_scale = (cell_h - 4) / 8;
-    if (label_scale < 1) label_scale = 1;
-    if (label_scale > 3) label_scale = 3;
-
-    int sel_scale = label_scale;  /* selected cell same scale */
+    /* Largest 8x8-multiple that fits vertically -- upper bound on
+     * each cell's text scale. */
+    int max_scale = (cell_h - 4) / 8;
+    if (max_scale < 1) max_scale = 1;
+    if (max_scale > 3) max_scale = 3;
 
     for (int r = 0; r < l->rows; ++r) {
         for (int c = 0; c < l->cols; ++c) {
@@ -171,18 +324,38 @@ static void draw_keyboard(const theme_t *th)
 
             display_fill_rect(x, y, cell_w, cell_h, bg);
 
+            if (key_uses_icon(k)) {
+                draw_key_icon(k, x, y, cell_w, cell_h, fg);
+                continue;
+            }
+
             const char *lbl = ((s_st.mod_sticky | s_st.mod_oneshot)
                                & HID_MOD_LSHIFT)
                               ? k->label_shifted : k->label_unshifted;
             if (!lbl || !*lbl) continue;
 
+            /* Shrink multi-letter labels so they fit the cell:
+             * pick the largest 8x8 scale (capped by max_scale) that
+             * leaves a small horizontal margin. Single-glyph keys
+             * therefore stay big, while "Caps" / "Bksp" / "PgUp"
+             * drop down to a smaller, fully readable size.
+             *
+             * Function keys (F1..F12) all use the same reference
+             * width of 3 chars so that F1..F9 render at the same
+             * scale as F10..F12 -- the row looks uniform instead
+             * of having two visually distinct tiers. */
             int lbl_len = (int)strlen(lbl);
-            int gw = 8 * (selected ? sel_scale : label_scale);
+            int fit_len = lbl_len;
+            if (k->special == KB_KEY_SPECIAL_FN && fit_len < 3) {
+                fit_len = 3;
+            }
+            int fit_scale = (cell_w - 2) / (fit_len * 8);
+            if (fit_scale < 1) fit_scale = 1;
+            int scale = fit_scale < max_scale ? fit_scale : max_scale;
+            int gw = 8 * scale;
             int tx = x + (cell_w - lbl_len * gw) / 2;
             int ty = y + (cell_h - gw) / 2;
-            display_draw_string(tx, ty, lbl,
-                                selected ? sel_scale : label_scale,
-                                fg, bg, true);
+            display_draw_string(tx, ty, lbl, scale, fg, bg, true);
         }
     }
 }
