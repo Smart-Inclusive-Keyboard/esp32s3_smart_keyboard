@@ -2,29 +2,7 @@
 
 ## Supported boards
 
-### Waveshare ESP32-S3-Touch-LCD-3.49 (default)
-
-| Function           | GPIO       | Notes                              |
-| ------------------ | ---------- | ---------------------------------- |
-| LCD QSPI CS        | 9          | AXS15231B QSPI panel               |
-| LCD QSPI SCK       | 12         |                                    |
-| LCD QSPI D0..D3    | 11, 13, 14, 10 |                                |
-| LCD RST            | 17         | hard reset                         |
-| LCD TE             | 18         | tearing-effect input               |
-| LCD BL             | 8          | active LOW, LEDC PWM @ 50 kHz      |
-| I2C gamepad SDA    | 11 (Kconfig)| External header                   |
-| I2C gamepad SCL    | 10 (Kconfig)| External header                   |
-| I2S MCLK / BCLK / LRCK / DOUT | 7 / 15 / 46 / 45 | on-board ES8311 codec + speaker |
-
-- 16 MB flash (QIO, 80 MHz)
-- 8 MB octal PSRAM (mode O, 80 MHz)
-- On-board I2S speaker via ES8311 codec. The board automatically
-  selects `BOARD_HAS_SPEAKER`, so the narrator is compiled in by
-  default. The pins above are hard-coded in
-  `components/board/src/board_waveshare_esp32s3_touch_lcd_349.c`
-  and override the generic `AUDIO_I2S_*` Kconfig defaults.
-
-### Waveshare ESP32-S3-Touch-LCD-3.5B
+### Waveshare ESP32-S3-Touch-LCD-3.5B (default)
 
 | Function           | GPIO       | Notes                              |
 | ------------------ | ---------- | ---------------------------------- |
@@ -55,12 +33,12 @@
   audio or touch). Edit the `.i2c_*` fields in
   `board_waveshare_esp32s3_touch_lcd_35b.c` if you need it.
 - The capacitive touchscreen overlay is driven by the same
-  AXS15231B-family "magic packet" I2C protocol used by the
-  3.49 board; on the 3.5B it sits on the codec I2C bus
-  (SDA = 8, SCL = 7, addr 0x3B) and reports coordinates in the
-  panel's native 320 x 480 portrait space. The firmware maps
-  them onto the logical 480 x 320 landscape framebuffer via
-  `mirror_x = mirror_y = swap_xy = true` in `board_t::touch`.
+  AXS15231B-family "magic packet" I2C protocol; on the 3.5B it
+  sits on the codec I2C bus (SDA = 8, SCL = 7, addr 0x3B) and
+  reports coordinates in landscape orientation. The firmware
+  maps them onto the logical 480 x 320 landscape framebuffer
+  via `mirror_x = mirror_y = true`, `swap_xy = false` in
+  `board_t::touch`.
 
 ### Generic ESP32-S3 / Generic ESP32
 

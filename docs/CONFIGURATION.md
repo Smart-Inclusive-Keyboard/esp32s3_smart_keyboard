@@ -64,7 +64,7 @@ transaction is issued per poll.
 | `SK_GAMEPAD_SPI_MODE`             | 0       | 0..3 (CPOL/CPHA)     |
 
 On boards that already use SPI2 for the display (e.g. the
-Waveshare 3.49), prefer host 3 for the gamepad.
+Waveshare 3.5B), prefer host 3 for the gamepad.
 
 ## HID transport
 

@@ -10,28 +10,13 @@ menu "SMART KEYBOARD"
 
 choice SK_BOARD
     prompt "Target board"
-    default SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
+    default SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
     help
         Selects the hardware board the firmware is built for.
         The board choice determines pin assignments, display
         controller, presence of PSRAM / speaker / battery, and
         which capability flags are exposed to the rest of the
         firmware.
-
-config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
-    bool "Waveshare ESP32-S3-Touch-LCD-3.49"
-    depends on IDF_TARGET_ESP32S3
-    select BOARD_HAS_PSRAM
-    select BOARD_HAS_DISPLAY
-    select BOARD_HAS_DISPLAY_AXS15231B
-    select BOARD_HAS_SPEAKER
-    select BOARD_HAS_TOUCH
-    help
-        Waveshare 3.49" 172x640 IPS panel with AXS15231B QSPI
-        controller on ESP32-S3 with 16 MB flash + 8 MB octal
-        PSRAM. Includes an on-board I2S speaker (ES8311 codec
-        on MCLK=7, BCLK=15, LRCK=46, DOUT=45) which is wired up
-        automatically for the narrator.
 
 config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
     bool "Waveshare ESP32-S3-Touch-LCD-3.5B"
