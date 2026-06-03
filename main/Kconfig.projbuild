@@ -32,6 +32,25 @@ config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_349
         on MCLK=7, BCLK=15, LRCK=46, DOUT=45) which is wired up
         automatically for the narrator.
 
+config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
+    bool "Waveshare ESP32-S3-Touch-LCD-3.5B"
+    depends on IDF_TARGET_ESP32S3
+    select BOARD_HAS_PSRAM
+    select BOARD_HAS_DISPLAY
+    select BOARD_HAS_DISPLAY_AXS15231B
+    select BOARD_HAS_SPEAKER
+    help
+        Waveshare 3.5" 320x480 IPS panel with AXS15231B QSPI
+        controller on ESP32-S3 with 16 MB flash + 8 MB octal
+        PSRAM. Includes an on-board I2S speaker (ES8311 codec
+        on MCLK=44, BCLK=13, LRCK=15, DOUT=16) which is wired
+        up automatically for the narrator. The external gamepad
+        SPI bus is hard-wired to SCLK=9, MOSI=10, MISO=11 on
+        SPI3 (no chip-select pin). I2C gamepad transport is not
+        supported on this board out of the box -- edit
+        board_waveshare_esp32s3_touch_lcd_35b.c to point at
+        free pins if you need it.
+
 config SK_BOARD_GENERIC_ESP32S3
     bool "Generic ESP32-S3 (no display configured)"
     depends on IDF_TARGET_ESP32S3

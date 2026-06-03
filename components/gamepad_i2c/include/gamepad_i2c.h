@@ -11,8 +11,15 @@
  *
  *   byte 0:   X axis, signed -128..127 (0 = centred)
  *   byte 1:   Y axis, signed -128..127 (0 = centred, positive = down)
- *   byte 2:   button bitmap A=0x01 B=0x02 X=0x04 Y=0x08
- *   byte 3:   button bitmap L=0x01 R=0x02 SELECT=0x04 START=0x08
+ *   byte 2:   face button bitmap 1=0x01 2=0x02 3=0x04 4=0x08
+ *             (HID button numbers 1..4)
+ *   byte 3:   aux  button bitmap 5=0x01 6=0x02 7=0x04 8=0x08
+ *             (HID button numbers 5..8)
+ *
+ * Bit positions in each byte are the HID button index minus one;
+ * the firmware does not map them back to vendor-specific letter
+ * names (A/B/X/Y, Cross/Circle/Square/Triangle, L/R/SELECT/START)
+ * -- the input router operates directly on numbered buttons.
  *
  * The driver polls every CONFIG_SK_GAMEPAD_POLL_MS milliseconds
  * and emits edge events on a FreeRTOS queue. Axes are converted
@@ -37,16 +44,21 @@ typedef enum {
     GP_BTN_DOWN,
     GP_BTN_LEFT,
     GP_BTN_RIGHT,
-    /* Face buttons. */
-    GP_BTN_A,
-    GP_BTN_B,
-    GP_BTN_X,
-    GP_BTN_Y,
-    /* Shoulders & menu. */
-    GP_BTN_L,
-    GP_BTN_R,
-    GP_BTN_SELECT,
-    GP_BTN_START,
+    /* Numbered HID buttons. The numeric suffix matches the
+     * button index used in the wire report (and in standard
+     * HID Button-page usages): face buttons are 1..4, aux /
+     * shoulder / menu buttons are 5..8. We intentionally do
+     * not bake vendor letter names (A/B/X/Y, L/R/SELECT/START)
+     * into the API so the same code works across controllers
+     * with different button silkscreens. */
+    GP_BTN_1,
+    GP_BTN_2,
+    GP_BTN_3,
+    GP_BTN_4,
+    GP_BTN_5,
+    GP_BTN_6,
+    GP_BTN_7,
+    GP_BTN_8,
 
     GP_BTN_COUNT,
 } gamepad_button_t;

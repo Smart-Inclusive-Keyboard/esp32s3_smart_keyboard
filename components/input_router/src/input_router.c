@@ -85,7 +85,7 @@ static void handle_down(gamepad_button_t b, uint32_t now)
     }
 
     switch (b) {
-    case GP_BTN_A:
+    case GP_BTN_1:
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
             hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
             hid_send_mouse(0, 0, 0, 0);
@@ -93,10 +93,10 @@ static void handle_down(gamepad_button_t b, uint32_t now)
             press_with_mod(0);
         }
         break;
-    case GP_BTN_X:
+    case GP_BTN_3:
         press_with_mod(HID_MOD_LSHIFT);
         break;
-    case GP_BTN_B:
+    case GP_BTN_2:
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
             hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
             hid_send_mouse(0, 0, 0, 0);
@@ -104,11 +104,11 @@ static void handle_down(gamepad_button_t b, uint32_t now)
             press_with_mod(HID_MOD_LCTRL);
         }
         break;
-    case GP_BTN_Y:
+    case GP_BTN_4:
         press_with_mod(HID_MOD_LALT);
         break;
-    case GP_BTN_L:
-        if (s_b[GP_BTN_R].down) {
+    case GP_BTN_5:
+        if (s_b[GP_BTN_6].down) {
             s_lr_chord_active = true;
             keyboard_ui_set_mode(
                 keyboard_ui_get_mode() == KB_MODE_MOUSE
@@ -118,8 +118,8 @@ static void handle_down(gamepad_button_t b, uint32_t now)
             hid_release_all();
         }
         break;
-    case GP_BTN_R:
-        if (s_b[GP_BTN_L].down) {
+    case GP_BTN_6:
+        if (s_b[GP_BTN_5].down) {
             s_lr_chord_active = true;
             keyboard_ui_set_mode(
                 keyboard_ui_get_mode() == KB_MODE_MOUSE
@@ -128,10 +128,10 @@ static void handle_down(gamepad_button_t b, uint32_t now)
             keyboard_ui_toggle_mod(HID_MOD_LSHIFT);
         }
         break;
-    case GP_BTN_START:
+    case GP_BTN_8:
         keyboard_ui_cycle_theme();
         break;
-    case GP_BTN_SELECT:
+    case GP_BTN_7:
         keyboard_ui_cycle_layout();
         break;
     default:
@@ -142,11 +142,11 @@ static void handle_down(gamepad_button_t b, uint32_t now)
 static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
-    if (b == GP_BTN_L || b == GP_BTN_R) {
-        /* Releasing one half of the L+R chord clears the latch so
-         * the next press of either isn't misinterpreted as a
-         * mode toggle. */
-        if (!s_b[GP_BTN_L].down && !s_b[GP_BTN_R].down) {
+    if (b == GP_BTN_5 || b == GP_BTN_6) {
+        /* Releasing one half of the 5+6 (shoulder) chord clears
+         * the latch so the next press of either isn't
+         * misinterpreted as a mode toggle. */
+        if (!s_b[GP_BTN_5].down && !s_b[GP_BTN_6].down) {
             s_lr_chord_active = false;
         }
     }
