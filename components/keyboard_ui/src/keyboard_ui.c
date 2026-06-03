@@ -584,6 +584,12 @@ int keyboard_ui_selected_hid_usage(void)
     return k ? k->hid_usage : HID_USAGE_NONE;
 }
 
+const kb_key_t *keyboard_ui_selected_key(void)
+{
+    const kb_layout_t *l = kb_layout_active();
+    return kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
+}
+
 void keyboard_ui_cycle_layout(void)
 {
     const kb_layout_t *cur = kb_layout_active();

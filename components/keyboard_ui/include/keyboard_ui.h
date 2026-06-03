@@ -16,6 +16,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "kb_layout.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -82,6 +84,12 @@ void keyboard_ui_start_task(void);
 /* HID usage of the currently selected cell (HID_USAGE_NONE if
  * the cell is empty). Exposed for the narrator. */
 int keyboard_ui_selected_hid_usage(void);
+
+/* Currently selected key cell (NULL if out of bounds). Exposed
+ * for the narrator so it can speak modifier keys (Shift / Ctrl /
+ * Alt / Win / AGr) which all share HID_USAGE_NONE in the layout
+ * and therefore can't be told apart by HID usage alone. */
+const kb_key_t *keyboard_ui_selected_key(void);
 
 /* Cycle to the next built-in keyboard layout (US -> DE -> FR ->
  * UA -> US). Persists the choice in NVS. */

@@ -40,6 +40,7 @@ if(CONFIG_BOARD_HAS_PSRAM AND CONFIG_BOARD_HAS_SPEAKER AND CONFIG_NARRATOR_ENABL
         idf_component_register(
             SRCS "src/narrator_stub.c"
             INCLUDE_DIRS "include"
+            REQUIRES kb_layout
         )
     endif()
 else()
@@ -48,5 +49,6 @@ else()
     idf_component_register(
         SRCS "src/narrator_stub.c"
         INCLUDE_DIRS "include"
+        REQUIRES kb_layout
     )
 endif()

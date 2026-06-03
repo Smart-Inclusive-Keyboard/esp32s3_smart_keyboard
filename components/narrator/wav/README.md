@@ -12,23 +12,29 @@ embed list is skipped entirely.
 They are taken verbatim from the upstream
 [clackups/smart-keyboard](https://github.com/clackups/smart-keyboard)
 project's `audio/` folder (MIT-licensed, same as this firmware).
-The letter clips are the US-English set (`us_<letter>.wav` upstream),
-renamed to drop the `us_` prefix so they match the symbol names
-the narrator declares. `esc.wav` upstream is imported as
-`escape.wav`. The narrator expects the following filenames:
+The letter / digit clips are the US-English set
+(`us_<letter>.wav` / `us_<digit>.wav` upstream), renamed to drop
+the `us_` prefix so they match the symbol names the narrator
+declares. `esc.wav` upstream is imported as `escape.wav`. The
+narrator expects the following filenames:
 
 ```
 a.wav, b.wav, ..., z.wav
-0.wav, 1.wav, ..., 9.wav       (optional, not yet wired)
-space.wav
-enter.wav
-backspace.wav
-tab.wav
-escape.wav
-shift.wav
-ctrl.wav
-alt.wav
+0.wav, 1.wav, ..., 9.wav
+space.wav, enter.wav, backspace.wav, tab.wav, escape.wav
+shift.wav, ctrl.wav, alt.wav, altgr.wav, capslock.wav
+apostrophe.wav, backslash.wav, backtick.wav, comma.wav,
+equals.wav, lbracket.wav, minus.wav, period.wav,
+rbracket.wav, semicolon.wav, slash.wav
+f1.wav .. f12.wav
+insert.wav, home.wav, pageup.wav,
+delete.wav, end.wav, pagedown.wav,
+up.wav, down.wav, left.wav, right.wav
 ```
+
+Every cell of the on-screen US layout has a matching clip
+except the "Win" / "Cmd" modifier (no upstream recording);
+that key narrates as silence.
 
 ## Format
 

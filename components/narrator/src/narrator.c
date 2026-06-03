@@ -40,7 +40,14 @@ static const char *TAG = "narrator";
  * Drop-in WAV filenames (mirroring the upstream `audio/` dir):
  *   a.wav .. z.wav, 0.wav .. 9.wav,
  *   space.wav, enter.wav, backspace.wav, tab.wav, escape.wav,
- *   shift.wav, ctrl.wav, alt.wav.
+ *   shift.wav, ctrl.wav, alt.wav, altgr.wav, capslock.wav,
+ *   apostrophe.wav, backslash.wav, backtick.wav, comma.wav,
+ *   equals.wav, lbracket.wav, minus.wav, period.wav,
+ *   rbracket.wav, semicolon.wav, slash.wav,
+ *   f1.wav .. f12.wav,
+ *   insert.wav, home.wav, pageup.wav,
+ *   delete.wav, end.wav, pagedown.wav,
+ *   up.wav, down.wav, left.wav, right.wav.
  *
  * If you maintain a different vocabulary, edit S_CLIPS below
  * and drop the matching extern declarations.
@@ -66,9 +73,20 @@ WAV_SYMS(k) WAV_SYMS(l) WAV_SYMS(m) WAV_SYMS(n) WAV_SYMS(o)
 WAV_SYMS(p) WAV_SYMS(q) WAV_SYMS(r) WAV_SYMS(s) WAV_SYMS(t)
 WAV_SYMS(u) WAV_SYMS(v) WAV_SYMS(w) WAV_SYMS(x) WAV_SYMS(y)
 WAV_SYMS(z)
+WAV_SYMS(0) WAV_SYMS(1) WAV_SYMS(2) WAV_SYMS(3) WAV_SYMS(4)
+WAV_SYMS(5) WAV_SYMS(6) WAV_SYMS(7) WAV_SYMS(8) WAV_SYMS(9)
 WAV_SYMS(space) WAV_SYMS(enter) WAV_SYMS(backspace)
 WAV_SYMS(tab)   WAV_SYMS(escape)
-WAV_SYMS(shift) WAV_SYMS(ctrl)  WAV_SYMS(alt)
+WAV_SYMS(shift) WAV_SYMS(ctrl)  WAV_SYMS(alt) WAV_SYMS(altgr)
+WAV_SYMS(capslock)
+WAV_SYMS(apostrophe) WAV_SYMS(backslash) WAV_SYMS(backtick)
+WAV_SYMS(comma) WAV_SYMS(equals) WAV_SYMS(lbracket) WAV_SYMS(minus)
+WAV_SYMS(period) WAV_SYMS(rbracket) WAV_SYMS(semicolon) WAV_SYMS(slash)
+WAV_SYMS(f1) WAV_SYMS(f2) WAV_SYMS(f3)  WAV_SYMS(f4)  WAV_SYMS(f5)  WAV_SYMS(f6)
+WAV_SYMS(f7) WAV_SYMS(f8) WAV_SYMS(f9)  WAV_SYMS(f10) WAV_SYMS(f11) WAV_SYMS(f12)
+WAV_SYMS(insert) WAV_SYMS(home)   WAV_SYMS(pageup)
+WAV_SYMS(delete) WAV_SYMS(end)    WAV_SYMS(pagedown)
+WAV_SYMS(up)     WAV_SYMS(down)   WAV_SYMS(left)    WAV_SYMS(right)
 
 typedef struct {
     uint8_t hid_usage;
@@ -88,11 +106,61 @@ static const clip_t S_CLIPS[] = {
     CLIP(HID_USAGE_S, s), CLIP(HID_USAGE_T, t), CLIP(HID_USAGE_U, u),
     CLIP(HID_USAGE_V, v), CLIP(HID_USAGE_W, w), CLIP(HID_USAGE_X, x),
     CLIP(HID_USAGE_Y, y), CLIP(HID_USAGE_Z, z),
-    CLIP(HID_USAGE_SPACE,     space),
-    CLIP(HID_USAGE_ENTER,     enter),
-    CLIP(HID_USAGE_BACKSPACE, backspace),
-    CLIP(HID_USAGE_TAB,       tab),
-    CLIP(HID_USAGE_ESCAPE,    escape),
+    CLIP(HID_USAGE_0, 0), CLIP(HID_USAGE_1, 1), CLIP(HID_USAGE_2, 2),
+    CLIP(HID_USAGE_3, 3), CLIP(HID_USAGE_4, 4), CLIP(HID_USAGE_5, 5),
+    CLIP(HID_USAGE_6, 6), CLIP(HID_USAGE_7, 7), CLIP(HID_USAGE_8, 8),
+    CLIP(HID_USAGE_9, 9),
+    CLIP(HID_USAGE_SPACE,      space),
+    CLIP(HID_USAGE_ENTER,      enter),
+    CLIP(HID_USAGE_BACKSPACE,  backspace),
+    CLIP(HID_USAGE_TAB,        tab),
+    CLIP(HID_USAGE_ESCAPE,     escape),
+    CLIP(HID_USAGE_CAPSLOCK,   capslock),
+    CLIP(HID_USAGE_GRAVE,      backtick),
+    CLIP(HID_USAGE_MINUS,      minus),
+    CLIP(HID_USAGE_EQUAL,      equals),
+    CLIP(HID_USAGE_LBRACKET,   lbracket),
+    CLIP(HID_USAGE_RBRACKET,   rbracket),
+    CLIP(HID_USAGE_BACKSLASH,  backslash),
+    CLIP(HID_USAGE_SEMICOLON,  semicolon),
+    CLIP(HID_USAGE_APOSTROPHE, apostrophe),
+    CLIP(HID_USAGE_COMMA,      comma),
+    CLIP(HID_USAGE_PERIOD,     period),
+    CLIP(HID_USAGE_SLASH,      slash),
+    CLIP(HID_USAGE_F1,  f1),  CLIP(HID_USAGE_F2,  f2),  CLIP(HID_USAGE_F3,  f3),
+    CLIP(HID_USAGE_F4,  f4),  CLIP(HID_USAGE_F5,  f5),  CLIP(HID_USAGE_F6,  f6),
+    CLIP(HID_USAGE_F7,  f7),  CLIP(HID_USAGE_F8,  f8),  CLIP(HID_USAGE_F9,  f9),
+    CLIP(HID_USAGE_F10, f10), CLIP(HID_USAGE_F11, f11), CLIP(HID_USAGE_F12, f12),
+    CLIP(HID_USAGE_INSERT,    insert),
+    CLIP(HID_USAGE_HOME,      home),
+    CLIP(HID_USAGE_PAGEUP,    pageup),
+    CLIP(HID_USAGE_DELETE,    delete),
+    CLIP(HID_USAGE_END,       end),
+    CLIP(HID_USAGE_PAGEDOWN,  pagedown),
+    CLIP(HID_USAGE_UP,    up),
+    CLIP(HID_USAGE_DOWN,  down),
+    CLIP(HID_USAGE_LEFT,  left),
+    CLIP(HID_USAGE_RIGHT, right),
+};
+
+/* Modifier keys (Shift / Ctrl / Alt / Win / AGr) all carry
+ * HID_USAGE_NONE in the layout because they are tracked locally
+ * as sticky modifier latches rather than sent on press. They are
+ * distinguished by the cell's label string. */
+typedef struct {
+    const char *label;
+    const uint8_t *start;
+    const uint8_t *end;
+} mod_clip_t;
+
+#define MOD_CLIP(lbl, name) { (lbl), _binary_##name##_wav_start, _binary_##name##_wav_end }
+
+static const mod_clip_t S_MOD_CLIPS[] = {
+    MOD_CLIP("Sft", shift),
+    MOD_CLIP("Ctl", ctrl),
+    MOD_CLIP("Alt", alt),
+    MOD_CLIP("AGr", altgr),
+    /* No upstream clip for "Win" / "Cmd"; fall back to silence. */
 };
 
 static const clip_t *find_clip(uint8_t usage)
@@ -119,19 +187,45 @@ void narrator_speak_hid(unsigned hid_usage)
     audio_play_wav(c->start, (size_t)(c->end - c->start));
 }
 
+void narrator_speak_key(const kb_key_t *k)
+{
+    if (!k) return;
+    if (k->hid_usage != HID_USAGE_NONE) {
+        narrator_speak_hid(k->hid_usage);
+        return;
+    }
+    /* HID_USAGE_NONE: modifier key tracked locally. Dispatch by
+     * the cell's idle label so Shift / Ctrl / Alt / AGr each get
+     * their own clip. Empty / spacer cells (label "") fall
+     * through to silence. */
+    const char *lbl = k->label_unshifted;
+    if (!lbl || !*lbl) return;
+    for (size_t i = 0; i < sizeof(S_MOD_CLIPS) / sizeof(S_MOD_CLIPS[0]); ++i) {
+        if (strcmp(S_MOD_CLIPS[i].label, lbl) == 0) {
+            audio_play_wav(S_MOD_CLIPS[i].start,
+                           (size_t)(S_MOD_CLIPS[i].end - S_MOD_CLIPS[i].start));
+            return;
+        }
+    }
+}
+
 void narrator_speak_selection(void)
 {
     /* keyboard_ui_press_current() is the BLE path; here we just
-     * resolve the selected key's HID usage and speak it. */
-    /* The currently selected cell lives in keyboard_ui, which we
-     * don't want a hard dependency on (narrator would then be
-     * impossible to use stand-alone). Instead the input_router
-     * passes us the selection via this entry point at every
-     * navigation event; we re-read the active layout's cursor
-     * from the UI through a tiny weak helper. */
+     * resolve the selected key and speak it. The dependency on
+     * keyboard_ui is expressed via weak symbols so narrator stays
+     * stand-alone-usable. We prefer the richer kb_key_t* getter
+     * when present (covers modifiers), falling back to the older
+     * HID-only getter for compatibility. */
+    extern const kb_key_t *keyboard_ui_selected_key(void) __attribute__((weak));
     extern int keyboard_ui_selected_hid_usage(void) __attribute__((weak));
-    if (!keyboard_ui_selected_hid_usage) return;
-    narrator_speak_hid((unsigned)keyboard_ui_selected_hid_usage());
+    if (keyboard_ui_selected_key) {
+        narrator_speak_key(keyboard_ui_selected_key());
+        return;
+    }
+    if (keyboard_ui_selected_hid_usage) {
+        narrator_speak_hid((unsigned)keyboard_ui_selected_hid_usage());
+    }
 }
 
 #endif /* PSRAM && SPEAKER && NARRATOR_ENABLE */

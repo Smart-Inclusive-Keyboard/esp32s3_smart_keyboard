@@ -14,6 +14,8 @@
  * via EMBED_FILES at build time.
  */
 
+#include "kb_layout.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -28,6 +30,12 @@ void narrator_speak_selection(void);
 
 /* Speak by raw HID usage ID. */
 void narrator_speak_hid(unsigned hid_usage);
+
+/* Speak the given key cell. Resolves to a clip by HID usage
+ * when the key has one, otherwise by the cell's idle label
+ * (covers modifier keys like Shift / Ctrl / Alt / AGr which
+ * share HID_USAGE_NONE in the layout). */
+void narrator_speak_key(const kb_key_t *key);
 
 #ifdef __cplusplus
 }
