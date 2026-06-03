@@ -109,6 +109,19 @@ const board_t g_board = {
         .dout = 16,
         .port = 0,
     },
+    .codec = {
+        /* ES8311 lives at 7-bit address 0x18 on the I2C bus
+         * shared with the capacitive touch controller (SDA = 8,
+         * SCL = 7). The on-board class-D amplifier draws its
+         * enable from the codec's GPIO -- there is no separate
+         * MCU-controlled PA pin, so pa_pin stays at -1. */
+        .i2c_port = 0,
+        .sda      = 8,
+        .scl      = 7,
+        .addr     = 0x18,
+        .freq_hz  = 100000,
+        .pa_pin   = -1,
+    },
     .touch = {
         /* The 3.5B carries the same AXS15231B-family capacitive
          * touch controller as the 3.49 board (magic-packet I2C

@@ -35,10 +35,10 @@
 - The capacitive touchscreen overlay is driven by the same
   AXS15231B-family "magic packet" I2C protocol; on the 3.5B it
   sits on the codec I2C bus (SDA = 8, SCL = 7, addr 0x3B) and
-  reports coordinates in landscape orientation. The firmware
-  maps them onto the logical 480 x 320 landscape framebuffer
-  via `mirror_x = mirror_y = true`, `swap_xy = false` in
-  `board_t::touch`.
+  reports coordinates in the panel's native 320 x 480 portrait
+  space. The firmware maps them onto the logical 480 x 320
+  landscape framebuffer via
+  `mirror_x = mirror_y = swap_xy = true` in `board_t::touch`.
 
 ### Generic ESP32-S3 / Generic ESP32
 

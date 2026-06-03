@@ -63,8 +63,18 @@ static i2c_master_dev_handle_t s_dev;
 static bool                    s_inited;
 static touchscreen_tap_cb_t    s_tap_cb;
 
-static const uint8_t AXS_READ_CMD[8] = {
+/* AXS15231B touch read command. Matches the espressif
+ * esp-arduino-libs / xiaozhi-library implementations for this
+ * controller: 11-byte preamble where bytes [6:7] encode the
+ * expected response length (big-endian) -- here 8 bytes (one
+ * touch point: 2 header + 6 data). The earlier 8-byte preamble
+ * the firmware used caused the controller to occasionally hand
+ * back stale GRAM with bogus "finger down" flags, which left
+ * our software touch state stuck pressed and prevented all
+ * subsequent taps from registering. */
+static const uint8_t AXS_READ_CMD[11] = {
     0xB5, 0xAB, 0xA5, 0x5A, 0x00, 0x00, 0x00, 0x08,
+    0x00, 0x00, 0x00,
 };
 
 /* Map a raw controller point to logical framebuffer pixels using
@@ -103,27 +113,35 @@ static bool poll_once(int *out_x, int *out_y)
 {
     if (!s_dev) return false;
     uint8_t resp[8] = { 0 };
-    esp_err_t err = i2c_master_transmit_receive(
-        s_dev,
-        AXS_READ_CMD, sizeof(AXS_READ_CMD),
-        resp, sizeof(resp),
-        50 /* ms */);
+    /* Use a write-then-read pair (not transmit_receive with a
+     * repeated-start) -- the AXS controller occasionally NAKs
+     * the restart on the audio-codec shared bus on the 3.5B.
+     * Two independent transactions matches the upstream
+     * esp_lcd_touch_axs15231b driver. */
+    esp_err_t err = i2c_master_transmit(
+        s_dev, AXS_READ_CMD, sizeof(AXS_READ_CMD), 50 /* ms */);
+    if (err != ESP_OK) {
+        ESP_LOGD(TAG, "i2c write failed: %s", esp_err_to_name(err));
+        return false;
+    }
+    err = i2c_master_receive(s_dev, resp, sizeof(resp), 50 /* ms */);
     if (err != ESP_OK) {
         ESP_LOGD(TAG, "i2c read failed: %s", esp_err_to_name(err));
         return false;
     }
 
-    uint8_t points  = resp[1] & 0x0F;
-    uint8_t gesture = resp[0];
+    uint8_t points = resp[1] & 0x0F;
+    /* Trust only the controller's explicit point count. The
+     * older "gesture==0 && coords!=0" heuristic mis-classifies
+     * the AXS controller's idle response (which can carry
+     * stale, non-zero coordinates between real touch frames)
+     * as a held-down finger, which permanently latches our
+     * pressed-state and makes every tap after the first
+     * appear to do nothing. */
+    if (points < 1 || points > 5) return false;
+
     int nx = ((int)(resp[2] & 0x0F) << 8) | resp[3];
     int ny = ((int)(resp[4] & 0x0F) << 8) | resp[5];
-
-    /* Accept either an explicit point count or LilyGo's
-     * "gesture==0 && non-zero coords" heuristic. */
-    bool valid = (points >= 1 && points <= 5) ||
-                 (gesture == 0 && (nx != 0 || ny != 0));
-    if (!valid) return false;
-
     native_to_logical(nx, ny, out_x, out_y);
     return true;
 }
@@ -199,9 +217,19 @@ bool touchscreen_init(void)
         .glitch_ignore_cnt = 7,
         .flags             = { .enable_internal_pullup = true },
     };
-    if (i2c_new_master_bus(&bus_cfg, &s_bus) != ESP_OK) {
-        ESP_LOGE(TAG, "i2c_new_master_bus failed");
-        return false;
+    /* Reuse an already-initialized bus on the same port if one
+     * exists (e.g. the audio component brought up the I2C bus
+     * to talk to the ES8311 codec, which shares SDA/SCL with
+     * the touch controller on the Waveshare 3.5B). Creating a
+     * second bus on the same port fails with INVALID_STATE. */
+    if (i2c_master_get_bus_handle(t->i2c_port, &s_bus) != ESP_OK ||
+        s_bus == NULL) {
+        if (i2c_new_master_bus(&bus_cfg, &s_bus) != ESP_OK) {
+            ESP_LOGE(TAG, "i2c_new_master_bus failed");
+            return false;
+        }
+    } else {
+        ESP_LOGI(TAG, "reusing existing I2C%d master bus", t->i2c_port);
     }
 
     i2c_device_config_t dev_cfg = {

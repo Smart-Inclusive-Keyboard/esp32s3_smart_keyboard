@@ -25,6 +25,7 @@ config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
     select BOARD_HAS_DISPLAY
     select BOARD_HAS_DISPLAY_AXS15231B
     select BOARD_HAS_SPEAKER
+    select BOARD_HAS_CODEC_ES8311
     select BOARD_HAS_TOUCH
     help
         Waveshare 3.5" 320x480 IPS panel with AXS15231B QSPI
@@ -72,6 +73,10 @@ config BOARD_HAS_DISPLAY_AXS15231B
     default n
 
 config BOARD_HAS_SPEAKER
+    bool
+    default n
+
+config BOARD_HAS_CODEC_ES8311
     bool
     default n
 
@@ -133,8 +138,7 @@ config SK_GAMEPAD_I2C_SDA_GPIO
     default 11
     help
         I2C SDA pin used to talk to the external gamepad
-        controller. Default is the breakout header on the
-        Waveshare ESP32-S3-Touch-LCD-3.49.
+        controller.
 
 config SK_GAMEPAD_I2C_SCL_GPIO
     int "I2C SCL GPIO"

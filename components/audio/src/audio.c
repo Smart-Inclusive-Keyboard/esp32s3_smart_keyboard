@@ -28,9 +28,13 @@
 #include <esp_check.h>
 #include <esp_log.h>
 #include <driver/i2s_std.h>
+#include <driver/i2c_master.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+
+#include "esp_codec_dev_defaults.h"
+#include "es8311_codec.h"
 
 #include "board.h"
 
@@ -43,6 +47,11 @@ static SemaphoreHandle_t s_mutex;
 static SemaphoreHandle_t s_kick;
 static volatile bool      s_playing;
 static int                s_volume_pct = CONFIG_AUDIO_VOLUME;
+static uint32_t           s_active_sr;        /* current configured rate */
+static i2c_master_bus_handle_t s_codec_bus;   /* shared with touchscreen */
+static const audio_codec_ctrl_if_t *s_codec_ctrl;
+static const audio_codec_gpio_if_t *s_codec_gpio;
+static const audio_codec_if_t      *s_codec;  /* es8311 instance, NULL if no codec */
 
 /* Active clip slot. The worker takes a local snapshot of this
  * under the mutex on every wake-up so a midway preemption only
@@ -104,6 +113,8 @@ static bool parse_wav(const uint8_t *d, size_t n, wav_info_t *info)
 
 static void apply_volume(int16_t *samples, size_t n_samples)
 {
+    /* Codec hardware handles attenuation when present. */
+    if (s_codec) return;
     if (s_volume_pct >= 100) return;
     int32_t gain = (s_volume_pct * 256) / 100;
     for (size_t i = 0; i < n_samples; ++i) {
@@ -111,10 +122,104 @@ static void apply_volume(int16_t *samples, size_t n_samples)
     }
 }
 
+static float volume_pct_to_db(int pct)
+{
+    /* Map 1..100% -> -40..0 dB; 0% -> -96 dB (effectively muted). */
+    if (pct <= 0) return -96.0f;
+    if (pct >= 100) return 0.0f;
+    return -40.0f + (40.0f * (float)pct / 100.0f);
+}
+
 static esp_err_t reconfigure_clock(uint32_t sample_rate)
 {
+    if (s_active_sr == sample_rate) return ESP_OK;
     i2s_std_clk_config_t clk = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
-    return i2s_channel_reconfig_std_clock(s_tx, &clk);
+    esp_err_t err = i2s_channel_reconfig_std_clock(s_tx, &clk);
+    if (err != ESP_OK) return err;
+    s_active_sr = sample_rate;
+    if (s_codec) {
+        esp_codec_dev_sample_info_t fs = {
+            .bits_per_sample = 16,
+            .channel         = 1,
+            .channel_mask    = 0,
+            .sample_rate     = sample_rate,
+            .mclk_multiple   = 0,
+        };
+        s_codec->set_fs(s_codec, &fs);
+    }
+    return ESP_OK;
+}
+
+static void codec_bringup(const board_t *b)
+{
+    if (b->codec.i2c_port < 0) return;
+
+    i2c_master_bus_config_t bus_cfg = {
+        .i2c_port = (i2c_port_t)b->codec.i2c_port,
+        .sda_io_num = b->codec.sda,
+        .scl_io_num = b->codec.scl,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .flags = { .enable_internal_pullup = true },
+    };
+    /* Reuse existing bus if some other component (touchscreen) created
+     * it first. */
+    if (i2c_master_get_bus_handle((i2c_port_num_t)b->codec.i2c_port,
+                                  &s_codec_bus) != ESP_OK) {
+        esp_err_t err = i2c_new_master_bus(&bus_cfg, &s_codec_bus);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "i2c bus create failed: %s", esp_err_to_name(err));
+            return;
+        }
+    }
+
+    audio_codec_i2c_cfg_t i2c_cfg = {
+        .port = (uint8_t)b->codec.i2c_port,
+        /* esp_codec_dev expects 8-bit (left-shifted) address; board
+         * stores the 7-bit form. */
+        .addr = (uint8_t)(b->codec.addr << 1),
+        .bus_handle = s_codec_bus,
+    };
+    s_codec_ctrl = audio_codec_new_i2c_ctrl(&i2c_cfg);
+    if (!s_codec_ctrl) {
+        ESP_LOGE(TAG, "codec i2c ctrl init failed (addr 0x%02x)",
+                 b->codec.addr);
+        return;
+    }
+    s_codec_gpio = audio_codec_new_gpio();
+
+    es8311_codec_cfg_t es8311_cfg = {
+        .ctrl_if     = s_codec_ctrl,
+        .gpio_if     = s_codec_gpio,
+        .codec_mode  = ESP_CODEC_DEV_WORK_MODE_DAC,
+        .pa_pin      = b->codec.pa_pin,
+        .pa_reverted = false,
+        .use_mclk    = (b->i2s.mclk >= 0),
+        .digital_mic = false,
+        .invert_mclk = false,
+        .invert_sclk = false,
+        .no_dac_ref  = false,
+        .mclk_div    = 0,
+        .master_mode = false,
+    };
+    s_codec = es8311_codec_new(&es8311_cfg);
+    if (!s_codec) {
+        ESP_LOGE(TAG, "ES8311 init failed");
+        return;
+    }
+    s_codec->enable(s_codec, true);
+    esp_codec_dev_sample_info_t fs = {
+        .bits_per_sample = 16,
+        .channel         = 1,
+        .channel_mask    = 0,
+        .sample_rate     = DEFAULT_SAMPLE_RATE,
+        .mclk_multiple   = 0,
+    };
+    s_codec->set_fs(s_codec, &fs);
+    s_active_sr = DEFAULT_SAMPLE_RATE;
+    s_codec->set_vol(s_codec, volume_pct_to_db(s_volume_pct));
+    ESP_LOGI(TAG, "ES8311 ready (addr 0x%02x port %d)",
+             b->codec.addr, b->codec.i2c_port);
 }
 
 static void worker(void *arg)
@@ -209,7 +314,10 @@ int audio_init(void)
         },
     };
     ESP_ERROR_CHECK(i2s_channel_init_std_mode(s_tx, &std_cfg));
+    s_active_sr = DEFAULT_SAMPLE_RATE;
     ESP_ERROR_CHECK(i2s_channel_enable(s_tx));
+
+    codec_bringup(b);
 
     xTaskCreatePinnedToCore(worker, "audio", 4096, NULL, 6, NULL, 1);
 
@@ -246,6 +354,9 @@ void audio_set_volume(int percent)
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
     s_volume_pct = percent;
+    if (s_codec) {
+        s_codec->set_vol(s_codec, volume_pct_to_db(percent));
+    }
 }
 
 bool audio_is_playing(void) { return s_playing; }
