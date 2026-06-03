@@ -39,6 +39,7 @@
 #include "fonts.h"
 #include "kb_layout.h"
 #include "hid.h"
+#include "narrator.h"
 
 static const char *TAG = "kb_ui";
 
@@ -543,6 +544,10 @@ void keyboard_ui_tap(int x, int y)
 
     s_st.sel_row = row;
     s_st.sel_col = col;
+    /* Speak the tapped key the same way navigation does -- the
+     * narrator otherwise wouldn't react to touch input because
+     * the touch path bypasses input_router. */
+    narrator_speak_selection();
     keyboard_ui_press_current();  /* also requests a redraw */
 }
 
