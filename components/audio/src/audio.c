@@ -276,6 +276,21 @@ static void worker(void *arg)
                               pdMS_TO_TICKS(100));
             offset += written ? written : chunk;
         }
+
+        /* The I2S DMA descriptors are circular: once the worker
+         * stops feeding it, the controller keeps replaying
+         * whatever PCM is still sitting in the DMA buffers,
+         * which sounds like the final note looping forever.
+         * Flush the pipeline with zeroed samples so playback
+         * ends in silence. The DMA holds dma_desc_num *
+         * dma_frame_num * 2 bytes (= 2880 here); two 4 KB
+         * silence writes comfortably overwrite it. */
+        memset(buf, 0, 4096);
+        for (int k = 0; k < 2; ++k) {
+            size_t written = 0;
+            i2s_channel_write(s_tx, buf, 4096, &written,
+                              pdMS_TO_TICKS(100));
+        }
         s_playing = false;
     }
 }
