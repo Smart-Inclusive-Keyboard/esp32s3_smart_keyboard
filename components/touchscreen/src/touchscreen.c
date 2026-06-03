@@ -89,8 +89,10 @@ static void native_to_logical(int nx, int ny, int *ox, int *oy)
     if (nh < 1) nh = 1;
     int lx = (int)((long long)nx * lw / nw);
     int ly = (int)((long long)ny * lh / nh);
-    if (lx < 0) lx = 0; if (lx > lw - 1) lx = lw - 1;
-    if (ly < 0) ly = 0; if (ly > lh - 1) ly = lh - 1;
+    if (lx < 0) lx = 0;
+    if (lx > lw - 1) lx = lw - 1;
+    if (ly < 0) ly = 0;
+    if (ly > lh - 1) ly = lh - 1;
     *ox = lx;
     *oy = ly;
 }
