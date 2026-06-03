@@ -137,12 +137,14 @@ const board_t g_board = {
          * landscape 480 x 320 framebuffer (90 deg CW software
          * rotation in the display flush path), so we map raw
          * touch coordinates to logical pixels with mirror_x =
-         * mirror_y = swap_xy = true -- the same composition
-         * Waveshare's reference driver applies via its
-         * esp_lcd_touch_axs15231b flags { swap_xy=1, mirror_x=1,
-         * mirror_y=1 } block (see coloz/xiaozhi-library
-         * src/boards/waveshare/esp32-s3-touch-lcd-3.5b for the
-         * upstream cross-reference). */
+         * swap_xy = true (and mirror_y = false). On this board
+         * the touch X axis runs the same direction as the panel's
+         * native X axis once the 90 deg CW software rotation in
+         * the display flush is taken into account -- mirroring
+         * both axes flips the logical X (Tab is reported at the
+         * far-right edge as PgDn). The remaining mirror_x in the
+         * touch's native space is needed for the vertical axis
+         * once swap_xy turns it into the logical Y. */
         .i2c_port = 0,
         .sda      = 8,
         .scl      = 7,
@@ -153,7 +155,7 @@ const board_t g_board = {
         .native_w = 320,
         .native_h = 480,
         .mirror_x = true,
-        .mirror_y = true,
+        .mirror_y = false,
         .swap_xy  = true,
     },
     .battery_adc_channel = -1,

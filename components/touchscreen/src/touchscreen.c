@@ -108,8 +108,13 @@ static void native_to_logical(int nx, int ny, int *ox, int *oy)
 }
 
 /* One I2C transaction. Fills *out_x / *out_y on a valid touch
- * sample (returns true). Returns false on I2C error or finger-up. */
-static bool poll_once(int *out_x, int *out_y)
+ * sample (returns true). Returns false on I2C error or finger-up.
+ *
+ * Stores the raw 8-byte response in *out_raw so the caller can
+ * detect "stale" frames (controller still reporting the previous
+ * touch's coordinates after the finger has lifted -- see the
+ * change-detection logic in touch_task). */
+static bool poll_once(int *out_x, int *out_y, uint8_t out_raw[8])
 {
     if (!s_dev) return false;
     uint8_t resp[8] = { 0 };
@@ -129,19 +134,23 @@ static bool poll_once(int *out_x, int *out_y)
         ESP_LOGD(TAG, "i2c read failed: %s", esp_err_to_name(err));
         return false;
     }
+    if (out_raw) memcpy(out_raw, resp, 8);
 
     uint8_t points = resp[1] & 0x0F;
-    /* Trust only the controller's explicit point count. The
-     * older "gesture==0 && coords!=0" heuristic mis-classifies
-     * the AXS controller's idle response (which can carry
-     * stale, non-zero coordinates between real touch frames)
-     * as a held-down finger, which permanently latches our
-     * pressed-state and makes every tap after the first
-     * appear to do nothing. */
-    if (points < 1 || points > 5) return false;
-
+    /* Accept either an explicit point count, or the LilyGo /
+     * draftling "gesture==0 with non-zero coords" heuristic.
+     * Both forms appear in the wild for AXS15231B-family
+     * controllers; trusting only one of them misses release
+     * events on some board revisions. The stale-frame guard in
+     * touch_task() is what actually distinguishes a held finger
+     * from a stuck buffer, so this routine just decides whether
+     * the response carries plausible coordinates. */
     int nx = ((int)(resp[2] & 0x0F) << 8) | resp[3];
     int ny = ((int)(resp[4] & 0x0F) << 8) | resp[5];
+    bool valid = (points >= 1 && points <= 5) ||
+                 (resp[0] == 0 && (nx != 0 || ny != 0));
+    if (!valid) return false;
+
     native_to_logical(nx, ny, out_x, out_y);
     return true;
 }
@@ -151,9 +160,32 @@ static void touch_task(void *arg)
     (void)arg;
     bool pressed = false;
     int  release_streak = 0;
+    int  stale_streak = 0;
+    uint8_t last_raw[8] = { 0 };
+    bool last_raw_valid = false;
     while (1) {
         int x = 0, y = 0;
-        bool now = poll_once(&x, &y);
+        uint8_t raw[8] = { 0 };
+        bool now = poll_once(&x, &y, raw);
+
+        /* The AXS15231B on the 3.5B does NOT reliably return a
+         * zeroed response when the finger lifts -- it tends to
+         * leave the last frame's bytes (point count, coords) in
+         * its I2C output buffer. A real held touch produces ADC
+         * jitter so consecutive responses always differ in the
+         * low bits; a stuck buffer is byte-for-byte identical.
+         * Treat N identical-in-a-row responses as a release
+         * regardless of what the point-count byte claims. */
+        if (now && last_raw_valid && memcmp(raw, last_raw, 8) == 0) {
+            if (++stale_streak >= RELEASE_DEBOUNCE) {
+                now = false;
+            }
+        } else {
+            stale_streak = 0;
+        }
+        memcpy(last_raw, raw, 8);
+        last_raw_valid = true;
+
         if (now) {
             release_streak = 0;
             if (!pressed) {
