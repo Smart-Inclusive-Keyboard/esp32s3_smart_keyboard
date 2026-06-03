@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <esp_check.h>
 #include <esp_log.h>
@@ -248,5 +249,96 @@ void audio_set_volume(int percent)
 }
 
 bool audio_is_playing(void) { return s_playing; }
+
+/* ----- Startup tune ------------------------------------------------
+ *
+ * Generates a tiny RIFF/WAVE blob in heap memory: a three-note
+ * ascending arpeggio (C5 -> E5 -> G5) at 22050 Hz, 16-bit mono,
+ * ~110 ms per note. Each note fades in and out with a short
+ * linear envelope so it doesn't click. The buffer is allocated
+ * once and never freed -- audio_play_wav() retains the pointer
+ * for the duration of playback, and this clip is short and
+ * one-shot, so leaking it on success is intentional.
+ */
+#define TUNE_SAMPLE_RATE 22050
+#define TUNE_NOTE_MS     110
+#define TUNE_NOTES       3
+#define TUNE_AMPLITUDE   12000  /* int16 peak, leaves headroom    */
+#define TUNE_FADE_MS     8
+
+void audio_play_startup_tune(void)
+{
+    if (audio_init() != 0) return;
+
+    static const float NOTE_HZ[TUNE_NOTES] = {
+        523.25f,  /* C5 */
+        659.25f,  /* E5 */
+        783.99f,  /* G5 */
+    };
+
+    const size_t note_samples = (TUNE_SAMPLE_RATE * TUNE_NOTE_MS) / 1000;
+    const size_t fade_samples = (TUNE_SAMPLE_RATE * TUNE_FADE_MS) / 1000;
+    const size_t total_samples = note_samples * TUNE_NOTES;
+    const size_t pcm_bytes = total_samples * sizeof(int16_t);
+    const size_t blob_bytes = 44 + pcm_bytes;
+
+    uint8_t *blob = malloc(blob_bytes);
+    if (!blob) {
+        ESP_LOGW(TAG, "startup tune: OOM (%u bytes)",
+                 (unsigned)blob_bytes);
+        return;
+    }
+
+    /* RIFF/WAVE header (PCM, 16-bit, mono). */
+    uint32_t riff_size = (uint32_t)(blob_bytes - 8);
+    uint32_t data_size = (uint32_t)pcm_bytes;
+    uint32_t byte_rate = TUNE_SAMPLE_RATE * 2;
+    memcpy(blob + 0,  "RIFF", 4);
+    blob[4] = (uint8_t)(riff_size);
+    blob[5] = (uint8_t)(riff_size >> 8);
+    blob[6] = (uint8_t)(riff_size >> 16);
+    blob[7] = (uint8_t)(riff_size >> 24);
+    memcpy(blob + 8,  "WAVE", 4);
+    memcpy(blob + 12, "fmt ", 4);
+    blob[16] = 16; blob[17] = 0; blob[18] = 0; blob[19] = 0; /* fmt size */
+    blob[20] = 1;  blob[21] = 0;                              /* PCM */
+    blob[22] = 1;  blob[23] = 0;                              /* mono */
+    blob[24] = (uint8_t)(TUNE_SAMPLE_RATE);
+    blob[25] = (uint8_t)(TUNE_SAMPLE_RATE >> 8);
+    blob[26] = (uint8_t)(TUNE_SAMPLE_RATE >> 16);
+    blob[27] = (uint8_t)(TUNE_SAMPLE_RATE >> 24);
+    blob[28] = (uint8_t)(byte_rate);
+    blob[29] = (uint8_t)(byte_rate >> 8);
+    blob[30] = (uint8_t)(byte_rate >> 16);
+    blob[31] = (uint8_t)(byte_rate >> 24);
+    blob[32] = 2;  blob[33] = 0;                              /* block align */
+    blob[34] = 16; blob[35] = 0;                              /* bits */
+    memcpy(blob + 36, "data", 4);
+    blob[40] = (uint8_t)(data_size);
+    blob[41] = (uint8_t)(data_size >> 8);
+    blob[42] = (uint8_t)(data_size >> 16);
+    blob[43] = (uint8_t)(data_size >> 24);
+
+    int16_t *pcm = (int16_t *)(blob + 44);
+    const float two_pi = 6.28318530718f;
+    for (int n = 0; n < TUNE_NOTES; ++n) {
+        float phase_step = two_pi * NOTE_HZ[n] / (float)TUNE_SAMPLE_RATE;
+        float phase = 0.0f;
+        for (size_t i = 0; i < note_samples; ++i) {
+            float env = 1.0f;
+            if (i < fade_samples) {
+                env = (float)i / (float)fade_samples;
+            } else if (i > note_samples - fade_samples) {
+                env = (float)(note_samples - i) / (float)fade_samples;
+            }
+            float s = sinf(phase) * env * (float)TUNE_AMPLITUDE;
+            phase += phase_step;
+            if (phase >= two_pi) phase -= two_pi;
+            pcm[n * note_samples + i] = (int16_t)s;
+        }
+    }
+
+    audio_play_wav(blob, blob_bytes);
+}
 
 #endif /* PSRAM && SPEAKER */

@@ -41,6 +41,7 @@
 #include "hid.h"
 #include "narrator.h"
 #include "touchscreen.h"
+#include "audio.h"
 
 static const char *TAG = "main";
 
@@ -125,8 +126,13 @@ void app_main(void)
     /* 5. HID transport (BLE or USB, per Kconfig). */
     hid_init(on_hid_status);
 
-    /* 6. Audio + narrator (no-ops on boards without speaker). */
+    /* 6. Audio + narrator (no-ops on boards without speaker).
+     *    Immediately after bring-up, play a short procedural
+     *    chime so the user can hear that the speaker path is
+     *    operational without waiting for the first narrated
+     *    keystroke. Stubbed on boards without a speaker. */
     narrator_init();
+    audio_play_startup_tune();
 
     /* 7. Gamepad + router. */
 #if CONFIG_SK_GAMEPAD_TRANSPORT_SPI

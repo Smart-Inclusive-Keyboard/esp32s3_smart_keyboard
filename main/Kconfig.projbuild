@@ -40,6 +40,7 @@ config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
     select BOARD_HAS_DISPLAY
     select BOARD_HAS_DISPLAY_AXS15231B
     select BOARD_HAS_SPEAKER
+    select BOARD_HAS_TOUCH
     help
         Waveshare 3.5" 320x480 IPS panel with AXS15231B QSPI
         controller on ESP32-S3 with 16 MB flash + 8 MB octal

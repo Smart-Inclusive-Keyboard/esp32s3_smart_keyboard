@@ -36,6 +36,7 @@
 | LCD BL             | 6          | active HIGH, LEDC PWM              |
 | SPI gamepad SCLK / MOSI / MISO | 9 / 10 / 11 | SPI3 host, no chip-select  |
 | I2S MCLK / BCLK / LRCK / DOUT | 44 / 13 / 15 / 16 | on-board ES8311 codec + speaker |
+| Touch I2C SDA / SCL | 8 / 7 | AXS15231B-family capacitive touch, addr 0x3B, shares the codec I2C bus |
 
 - 16 MB flash, 8 MB octal PSRAM, ESP32-S3 (N16R8).
 - Native panel resolution is 320x480 portrait; the firmware
@@ -53,6 +54,13 @@
   board (every Kconfig default pin clashes with display,
   audio or touch). Edit the `.i2c_*` fields in
   `board_waveshare_esp32s3_touch_lcd_35b.c` if you need it.
+- The capacitive touchscreen overlay is driven by the same
+  AXS15231B-family "magic packet" I2C protocol used by the
+  3.49 board; on the 3.5B it sits on the codec I2C bus
+  (SDA = 8, SCL = 7, addr 0x3B) and reports coordinates in the
+  panel's native 320 x 480 portrait space. The firmware maps
+  them onto the logical 480 x 320 landscape framebuffer via
+  `mirror_x = mirror_y = swap_xy = true` in `board_t::touch`.
 
 ### Generic ESP32-S3 / Generic ESP32
 
