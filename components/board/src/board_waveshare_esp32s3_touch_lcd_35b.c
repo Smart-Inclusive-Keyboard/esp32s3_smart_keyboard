@@ -26,20 +26,12 @@
  *   correct I2S pins and selects BOARD_HAS_SPEAKER so the
  *   audio / narrator components are compiled in.
  *
- *   External gamepad SPI: SCLK=9, MOSI=10, MISO=11 on SPI3.
- *   The pin trio is requested by the user; CS is left
- *   unassigned (-1) because nothing else on the board is wired
- *   to a free pin suitable for use as a chip-select, and the
- *   gamepad we target here is the only slave on the bus so
- *   permanently-asserted /CS is acceptable. SK_GAMEPAD_SPI_*_GPIO
- *   Kconfig defaults are NOT used -- every one of them collides
- *   with the display QSPI bus or audio I2S pins on this board.
- *
- *   I2C gamepad transport is intentionally not wired on this
- *   board (every default pin clashes with display / audio /
- *   touch). If you select SK_GAMEPAD_TRANSPORT_I2C with this
- *   board you must edit the .i2c_* fields below to point at a
- *   free pin pair.
+ *   External gamepad UART: the companion gamepad board streams
+ *   its HID report TX-only into this board's RX pin (8-N-1,
+ *   115200 baud by default). The default RX pin is GPIO 11,
+ *   which is free on this board (the SK_GAMEPAD_UART_* Kconfig
+ *   defaults can be used as-is). The interface is receive-only;
+ *   no TX / RTS / CTS line is driven.
  *
  * References:
  *   https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5B
@@ -73,34 +65,15 @@ const board_t g_board = {
         .height = 320,
         .swap_xy = true,
     },
-#if CONFIG_SK_GAMEPAD_TRANSPORT_I2C
-    /* I2C gamepad pins are NOT wired on this board's free-pin
-     * set -- every Kconfig default collides with display / audio
-     * / touch. Force the bus pins to -1 so a misconfiguration is
-     * caught at runtime instead of silently driving the wrong
-     * wires. */
-    .i2c_port    = CONFIG_SK_GAMEPAD_I2C_PORT,
-    .i2c_sda     = -1,
-    .i2c_scl     = -1,
-    .i2c_freq_hz = CONFIG_SK_GAMEPAD_I2C_FREQ_HZ,
-#else
-    .i2c_port = 0, .i2c_sda = -1, .i2c_scl = -1, .i2c_freq_hz = 0,
-#endif
-#if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
-    /* SPI3 host (display owns SPI2). Pin trio requested by the
-     * board author: SCLK=9, MOSI=10, MISO=11. No dedicated CS
-     * pin -- gamepad is the only slave on the bus. */
-    .spi_host    = 3,
-    .spi_sclk    = 9,
-    .spi_mosi    = 10,
-    .spi_miso    = 11,
-    .spi_cs      = -1,
-    .spi_freq_hz = CONFIG_SK_GAMEPAD_SPI_FREQ_HZ,
-    .spi_mode    = CONFIG_SK_GAMEPAD_SPI_MODE,
-#else
-    .spi_host = -1, .spi_sclk = -1, .spi_mosi = -1, .spi_miso = -1,
-    .spi_cs   = -1, .spi_freq_hz = 0, .spi_mode = 0,
-#endif
+    /* External gamepad UART link. The companion gamepad board
+     * streams its HID report TX-only into our RX pin (8-N-1).
+     * GPIO 11 is free on this board (display owns {1,2,3,4,5,6,
+     * 12}, audio / touch own {7,8,13,15,16,44}), so the
+     * SK_GAMEPAD_UART_RX_GPIO Kconfig default of 11 is safe to
+     * use as-is here. */
+    .uart_port = CONFIG_SK_GAMEPAD_UART_PORT,
+    .uart_rx   = CONFIG_SK_GAMEPAD_UART_RX_GPIO,
+    .uart_baud = CONFIG_SK_GAMEPAD_UART_BAUD,
     .i2s = {
         /* On-board ES8311 codec wiring -- fixed by the PCB. */
         .mclk = 44,
@@ -162,13 +135,13 @@ const board_t g_board = {
 };
 
 /* Compile-time guards against re-introducing pin overlap between
- * the gamepad SPI bus, the display QSPI bus, the audio I2S bus
- * and the on-board touch I2C bus. The pin sets owned by each
+ * the gamepad UART RX pin, the display QSPI bus, the audio I2S
+ * bus and the on-board touch I2C bus. The pin sets owned by each
  * subsystem on this board are:
  *   display : { 1, 2, 3, 4, 5, 6, 12 }
  *   audio   : { 13, 15, 16, 44 } (I2S) + { 7, 8 } (I2C to codec)
  *   touch   : { 7, 8 } (shared with the codec I2C bus)
- * Any gamepad pin landing in any of those sets would corrupt the
+ * A gamepad pin landing in any of those sets would corrupt the
  * shared wire. */
 #include <assert.h>
 #define SK_35B_PIN_CONFLICTS_DISPLAY(p) ( \
@@ -181,13 +154,7 @@ const board_t g_board = {
     (!SK_35B_PIN_CONFLICTS_DISPLAY(p) && \
      !SK_35B_PIN_CONFLICTS_AUDIO(p))
 
-#if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
-_Static_assert(SK_35B_GAMEPAD_PIN_OK(9),
-    "Waveshare 3.5B: gamepad SPI SCLK must not overlap display/audio pins");
-_Static_assert(SK_35B_GAMEPAD_PIN_OK(10),
-    "Waveshare 3.5B: gamepad SPI MOSI must not overlap display/audio pins");
-_Static_assert(SK_35B_GAMEPAD_PIN_OK(11),
-    "Waveshare 3.5B: gamepad SPI MISO must not overlap display/audio pins");
-#endif
+_Static_assert(SK_35B_GAMEPAD_PIN_OK(CONFIG_SK_GAMEPAD_UART_RX_GPIO),
+    "Waveshare 3.5B: gamepad UART RX must not overlap display/audio pins");
 
 #endif /* CONFIG_SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B */

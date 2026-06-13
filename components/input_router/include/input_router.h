@@ -3,7 +3,7 @@
 /*
  * Gamepad-event router.
  *
- * Reads gamepad_event_t from the gamepad_i2c queue, translates
+ * Reads gamepad_event_t from the gamepad_uart queue, translates
  * them into UI / HID actions, and (optionally) pings the
  * narrator on selection changes.
  *
@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 /* Spawn the router task. `events` is the queue handle returned
- * by gamepad_i2c_start(). Must be called after keyboard_ui_init()
+ * by gamepad_uart_start(). Must be called after keyboard_ui_init()
 * and hid_init(). */
 void input_router_start(QueueHandle_t events);
 

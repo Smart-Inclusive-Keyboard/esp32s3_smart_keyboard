@@ -103,7 +103,7 @@ typedef struct {
  */
 typedef struct {
     int     i2c_port;   /* I2C peripheral number (separate from
-                         * the gamepad bus to avoid pin clashes) */
+                         * other buses to avoid pin clashes)     */
     int     sda;
     int     scl;
     int     intr;       /* INT line, -1 if not wired              */
@@ -122,23 +122,13 @@ typedef struct {
     board_display_type_t display_type;
     board_display_t     display;
 
-    /* I2C bus used to talk to the external gamepad. */
-    int  i2c_port;
-    int  i2c_sda;
-    int  i2c_scl;
-    int  i2c_freq_hz;
-
-    /* SPI bus used to talk to the external gamepad when the
-     * SPI transport is selected. The device is always the
-     * host / master; the gamepad is the slave. All -1 when
-     * SPI is not wired on the board (or not selected). */
-    int  spi_host;
-    int  spi_sclk;
-    int  spi_mosi;
-    int  spi_miso;
-    int  spi_cs;
-    int  spi_freq_hz;
-    int  spi_mode;
+    /* UART used to receive the external gamepad's HID reports.
+     * The link is receive-only (8-N-1); uart_rx is the GPIO the
+     * gamepad's TX line is wired to, and is -1 when no gamepad
+     * UART is wired on the board. */
+    int  uart_port;
+    int  uart_rx;
+    int  uart_baud;
 
     /* Optional I2S audio output (only valid when CONFIG_BOARD_HAS_SPEAKER). */
     board_i2s_t i2s;
@@ -167,8 +157,8 @@ const board_t *board_get(void);
  * Initialize whatever shared peripherals the board needs before
  * the rest of the firmware comes up. Today this is limited to a
  * short panel-reset pulse on boards that have a controllable RST
- * GPIO; the I2C / I2S / SPI buses are owned by their respective
- * components (gamepad_i2c, audio, display) and configured by them
+ * GPIO; the I2C / I2S / UART buses are owned by their respective
+ * components (gamepad_uart, audio, display) and configured by them
  * from the board_t struct.
  *
  * Idempotent and safe to call exactly once from app_main() before
