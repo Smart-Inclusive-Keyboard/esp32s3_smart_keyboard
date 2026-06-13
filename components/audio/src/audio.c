@@ -310,7 +310,7 @@ int audio_init(void)
     if (!s_mutex || !s_kick) return -1;
 
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(
-        (i2s_port_t)b->i2s.port, I2S_ROLE_MASTER);
+        b->i2s.port, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num  = 6;
     chan_cfg.dma_frame_num = 240;
     ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &s_tx, NULL));
