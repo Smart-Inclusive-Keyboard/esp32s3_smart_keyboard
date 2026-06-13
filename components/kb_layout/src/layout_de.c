@@ -15,7 +15,7 @@
 #include "kb_layout.h"
 
 static const kb_key_t s_keys[1] = {
-    { "DE?", "DE?", HID_USAGE_NONE, KB_KEY_SPECIAL_NONE },
+    { "DE?", "DE?", HID_USAGE_NONE, KB_KEY_SPECIAL_NONE, NULL, NULL },
 };
 
 const kb_layout_t kb_layout_de = {
