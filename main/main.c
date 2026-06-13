@@ -14,8 +14,7 @@
  *   7. hid_init()              -- BLE (NimBLE) or USB (TinyUSB), per
  *                                 CONFIG_SK_HID_TRANSPORT_*
  *   8. narrator_init()         -- audio backend if available
- *   9. gamepad_i2c_start() or gamepad_spi_start()
- *                                 (depending on CONFIG_SK_GAMEPAD_TRANSPORT)
+ *   9. gamepad_uart_start()   -- receive-only UART HID link
  *  10. input_router_start()
  *  11. keyboard_ui_start_task()-- async redraw pump for subsequent
  *                                 state changes
@@ -35,8 +34,7 @@
 #include "fonts.h"
 #include "kb_layout.h"
 #include "keyboard_ui.h"
-#include "gamepad_i2c.h"
-#include "gamepad_spi.h"
+#include "gamepad_uart.h"
 #include "input_router.h"
 #include "hid.h"
 #include "narrator.h"
@@ -115,8 +113,8 @@ void app_main(void)
      * We deliberately render the keyboard SYNCHRONOUSLY here, BEFORE
      * starting HID and gamepad, so the user sees a visible UI even
      * if those subsystems take noticeable time to come up (BLE
-     * advertising, USB enumeration, gamepad I2C/SPI handshakes can
-     * each take hundreds of ms, and a hung peripheral would
+     * advertising, USB enumeration, gamepad UART bring-up can
+     * each take noticeable time, and a hung peripheral would
      * otherwise leave the panel showing only the splash). The async
      * redraw task is started afterwards to handle subsequent state
      * changes. */
@@ -135,11 +133,7 @@ void app_main(void)
     audio_play_startup_tune();
 
     /* 7. Gamepad + router. */
-#if CONFIG_SK_GAMEPAD_TRANSPORT_SPI
-    QueueHandle_t q = gamepad_spi_start();
-#else
-    QueueHandle_t q = gamepad_i2c_start();
-#endif
+    QueueHandle_t q = gamepad_uart_start();
     input_router_start(q);
 
     /* 7b. Optional touchscreen (no-op on boards without one). */

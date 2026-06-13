@@ -23,48 +23,23 @@ both to be useful.
 
 ## Gamepad transport
 
-`SK_GAMEPAD_TRANSPORT_I2C` (default) or `SK_GAMEPAD_TRANSPORT_SPI`
-picks the bus the external gamepad is wired to. The device is
-always the bus master / host; the gamepad is always the slave.
-Only the selected transport's driver is compiled in, but the
-4-byte report format and `gamepad_event_t` queue are identical
-across both, so `input_router` is transport-agnostic.
-
-Shared options (apply regardless of transport):
-
-| Option                            | Default | Range            |
-| --------------------------------- | ------- | ---------------- |
-| `SK_GAMEPAD_POLL_MS`              | 16      | 5..100           |
-| `SK_GAMEPAD_AXIS_DEADZONE`        | 40      | 0..127           |
-
-### I2C gamepad (`SK_GAMEPAD_TRANSPORT_I2C`)
-
-| Option                            | Default | Range            |
-| --------------------------------- | ------- | ---------------- |
-| `SK_GAMEPAD_I2C_PORT`             | 0       | 0..1             |
-| `SK_GAMEPAD_I2C_SDA_GPIO`         | 11      | any GPIO         |
-| `SK_GAMEPAD_I2C_SCL_GPIO`         | 10      | any GPIO         |
-| `SK_GAMEPAD_I2C_FREQ_HZ`          | 100000  | 50 kHz..400 kHz  |
-| `SK_GAMEPAD_I2C_ADDR`             | 0x52    | 0x08..0x77       |
-
-### SPI gamepad (`SK_GAMEPAD_TRANSPORT_SPI`)
-
-The device drives SCLK / MOSI / CS toward the gamepad slave and
-clocks the 4-byte report back on MISO. One full-duplex 4-byte
-transaction is issued per poll.
+The external gamepad is a separate board that streams its HID
+report into this firmware over a one-way (receive-only) UART
+link (8-N-1). This firmware never transmits. The 6-byte report
+format and `gamepad_event_t` queue feed a transport-agnostic
+`input_router`.
 
 | Option                            | Default | Range                |
 | --------------------------------- | ------- | -------------------- |
-| `SK_GAMEPAD_SPI_HOST`             | 2       | 1..3 (SPI2 / SPI3)   |
-| `SK_GAMEPAD_SPI_SCLK_GPIO`        | 12      | any GPIO             |
-| `SK_GAMEPAD_SPI_MOSI_GPIO`        | 11      | any GPIO             |
-| `SK_GAMEPAD_SPI_MISO_GPIO`        | 13      | any GPIO             |
-| `SK_GAMEPAD_SPI_CS_GPIO`          | 10      | any GPIO             |
-| `SK_GAMEPAD_SPI_FREQ_HZ`          | 1000000 | 100 kHz..10 MHz      |
-| `SK_GAMEPAD_SPI_MODE`             | 0       | 0..3 (CPOL/CPHA)     |
+| `SK_GAMEPAD_AXIS_DEADZONE`        | 8000    | 0..32767             |
+| `SK_GAMEPAD_UART_PORT`            | 1       | 1..2 (UART1 / UART2) |
+| `SK_GAMEPAD_UART_RX_GPIO`         | 11      | any GPIO             |
+| `SK_GAMEPAD_UART_BAUD`            | 115200  | any baud rate        |
 
-On boards that already use SPI2 for the display (e.g. the
-Waveshare 3.5B), prefer host 3 for the gamepad.
+The RX pin is connected to the gamepad's TX line; no TX / RTS /
+CTS pin is driven. `SK_GAMEPAD_AXIS_DEADZONE` is applied to the
+signed 16-bit analog axes carried in the report. See
+[HARDWARE.md](HARDWARE.md) for the wire format and button map.
 
 ## HID transport
 

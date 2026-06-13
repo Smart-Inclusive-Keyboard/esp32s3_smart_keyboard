@@ -12,7 +12,7 @@
 | LCD RST            | -1         | wired to TCA9554 I/O expander pin 1, not a GPIO |
 | LCD TE             | -1         | not wired                          |
 | LCD BL             | 6          | active HIGH, LEDC PWM              |
-| SPI gamepad SCLK / MOSI / MISO | 9 / 10 / 11 | SPI3 host, no chip-select  |
+| Gamepad UART RX    | 11         | receive-only, 8-N-1, 115200 baud   |
 | I2S MCLK / BCLK / LRCK / DOUT | 44 / 13 / 15 / 16 | on-board ES8311 codec + speaker |
 | Touch I2C SDA / SCL | 8 / 7 | AXS15231B-family capacitive touch, addr 0x3B, shares the codec I2C bus |
 
@@ -24,14 +24,11 @@
   `BOARD_HAS_SPEAKER` so the narrator is compiled in by
   default; the I2S pins above are hard-coded in
   `components/board/src/board_waveshare_esp32s3_touch_lcd_35b.c`.
-- The gamepad SPI bus is hard-wired to GPIO 9 / 10 / 11 (SCLK,
-  MOSI, MISO) on SPI3. There is no dedicated CS pin -- the
-  gamepad is the only slave on the bus and `/CS` stays
-  asserted.
-- The I2C gamepad transport is not wired by default on this
-  board (every Kconfig default pin clashes with display,
-  audio or touch). Edit the `.i2c_*` fields in
-  `board_waveshare_esp32s3_touch_lcd_35b.c` if you need it.
+- The gamepad is wired to a single receive-only UART RX pin,
+  GPIO 11 by default. That pin is free on this board; the
+  companion gamepad board drives it TX-only at 115200 baud
+  8-N-1. Change the pin / port / baud via the
+  `CONFIG_SK_GAMEPAD_UART_*` options in menuconfig.
 - The capacitive touchscreen overlay is driven by the same
   AXS15231B-family "magic packet" I2C protocol; on the 3.5B it
   sits on the codec I2C bus (SDA = 8, SCL = 7, addr 0x3B) and
@@ -49,22 +46,29 @@ wiring, then select the matching board in menuconfig.
 
 ## Gamepad wiring
 
-The external gamepad can be wired to either an I2C bus or an SPI
-bus; the firmware is always the bus master / host, and the
-gamepad is always the slave. Pick a transport with
-`CONFIG_SK_GAMEPAD_TRANSPORT_{I2C,SPI}` in menuconfig.
+The external gamepad is a separate board that streams its HID
+report into this firmware over a one-way (receive-only) UART
+link. Wire the gamepad's TX line to the configured RX GPIO
+(`CONFIG_SK_GAMEPAD_UART_RX_GPIO`, GPIO 11 by default) and share
+a common ground. The link is 8-N-1 at
+`CONFIG_SK_GAMEPAD_UART_BAUD` baud (115200 by default); this
+firmware never transmits.
 
-Both transports use the same fixed 4-byte HID-style report:
+The report is a fixed 6-byte frame, identical to the HID report
+emitted by the companion gamepad firmware
+([clackups/esp32s3_dual_foc_gp](https://github.com/clackups/esp32s3_dual_foc_gp)):
 
 ```
-byte 0:  X axis, int8_t (-128..127, 0 = centred)
-byte 1:  Y axis, int8_t (positive = down)
-byte 2:  face button bitmap: button 1=0x01, 2=0x02, 3=0x04, 4=0x08
-byte 3:  aux  button bitmap: button 5=0x01, 6=0x02, 7=0x04, 8=0x08
+byte 0:  buttons 0..7  (bit i set = HID button i+1 pressed)
+byte 1:  buttons 8..9  (bits 0..1) + 6 bits padding
+byte 2:  X axis, signed 16-bit LE low byte
+byte 3:  X axis high byte (-32767..32767, 0 = centred, positive = right)
+byte 4:  Y axis, signed 16-bit LE low byte
+byte 5:  Y axis high byte (-32767..32767, 0 = centred, positive = down)
 ```
 
 The firmware refers to gamepad buttons by their HID number
-(1..8) rather than by vendor letter names (A/B/X/Y or
+(1..10) rather than by vendor letter names (A/B/X/Y or
 Cross/Circle/Square/Triangle), so the same code works across
 controllers whose silkscreens disagree. The default `input_router`
 mapping is:
@@ -78,25 +82,14 @@ mapping is:
 - button 7 -> cycle keyboard layout
 - button 8 -> cycle color theme
 
-### I2C transport
+### UART transport
 
-Read from the configured 7-bit slave address every
-`CONFIG_SK_GAMEPAD_POLL_MS` milliseconds. The driver does no
-register addressing -- it issues a raw 4-byte read every poll
-interval. To use a controller with a different protocol, edit
+The driver installs the UART in receive-only mode (no TX / RTS /
+CTS pin is driven) and reads one 6-byte frame at a time. The
+analog axes are reduced to discrete D-pad directions using
+`CONFIG_SK_GAMEPAD_AXIS_DEADZONE`. To adapt the wire format, edit
 `gamepad_parse_report()` in
-`components/gamepad_i2c/src/gamepad_i2c.c`.
-
-### SPI transport
-
-The device asserts CS and issues a single full-duplex 4-byte
-transaction every `CONFIG_SK_GAMEPAD_POLL_MS` milliseconds; the
-MOSI byte is a dummy command (`0x00`) and the gamepad clocks the
-4-byte report back on MISO. SCLK / MOSI / MISO / CS pins, SPI
-host, clock frequency, and SPI mode (CPOL/CPHA) are all set in
-menuconfig under **SMART KEYBOARD -> Gamepad -> SPI gamepad**.
-The decoder is the same `gamepad_parse_report()` style routine
-in `components/gamepad_spi/src/gamepad_spi.c`.
+`components/gamepad_uart/src/gamepad_uart.c`.
 
 ## Power
 

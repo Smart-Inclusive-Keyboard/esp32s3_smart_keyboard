@@ -11,7 +11,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "gamepad_i2c.h"
+#include "gamepad_uart.h"
 #include "keyboard_ui.h"
 #include "hid.h"
 #include "kb_layout.h"

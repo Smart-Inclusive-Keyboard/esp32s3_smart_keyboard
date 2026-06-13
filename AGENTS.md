@@ -10,8 +10,9 @@ get wrong from a fresh read of the code.
 ESP-IDF firmware that turns an ESP32-family board with an on-board
 LCD into a **virtual keyboard + mouse HID peripheral**. The user
 navigates an on-screen ortholinear keyboard with an external
-gamepad (I2C or SPI) and the firmware emits HID reports to the
-host PC over **Bluetooth LE** (NimBLE) or **USB** (TinyUSB). The
+gamepad (receive-only UART HID link) and the firmware emits HID
+reports to the host PC over **Bluetooth LE** (NimBLE) or **USB**
+(TinyUSB). The
 transport is a build-time Kconfig choice gated by what the
 selected SoC actually supports. With PSRAM + a speaker, an
 optional "narrator" speaks each navigated letter.
@@ -49,8 +50,8 @@ components/
   keyboard_ui/         virtual-keyboard state machine + rendering;
                        owns selection cursor, modifier latches,
                        status bar, mouse-mode overlay
-  gamepad_i2c/         I2C master poller + 4-byte HID-style parser
-  gamepad_spi/         SPI host poller (same 4-byte report format)
+  gamepad_uart/        receive-only UART poller + 6-byte HID-report
+                       parser (10 buttons + two 16-bit axes)
   input_router/        gamepad events -> UI nav + HID dispatch
   hid/                 transport-agnostic HID facade (hid_send_key,
                        hid_send_mouse)
@@ -68,7 +69,7 @@ Boot order (see `main/main.c`): `nvs_flash_init` -> `board_init`
 -> `display_init` -> splash -> `keyboard_ui_init` ->
 `keyboard_ui_redraw_now` (so the keyboard is on screen before any
 slow peripheral init) -> `hid_init` -> `narrator_init` ->
-`gamepad_*_start` -> `input_router_start` ->
+`gamepad_uart_start` -> `input_router_start` ->
 `keyboard_ui_start_task`.
 
 ## Build / flash / debug

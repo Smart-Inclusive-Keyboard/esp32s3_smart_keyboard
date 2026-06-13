@@ -3,7 +3,8 @@
 ESP-IDF firmware that recreates the
 [clackups/smart-keyboard](https://github.com/clackups/smart-keyboard)
 project on ESP32-family hardware: a virtual keyboard rendered on an
-on-board screen, navigated with an external gamepad (I2C or SPI),
+on-board screen, navigated with an external gamepad (receive-only
+UART HID link),
 that acts as a **HID keyboard + mouse** toward a host computer over
 either **Bluetooth LE** (NimBLE) or **USB** (TinyUSB) -- the
 transport is a build-time Kconfig choice, gated by what the chosen
@@ -40,8 +41,7 @@ components/
   theme/               color palette table (default: green on black)
   kb_layout/           keyboard layouts (US default; DE / FR / UA stubs)
   keyboard_ui/         virtual-keyboard state machine + rendering
-  gamepad_i2c/         I2C master poller + simplified-HID parser
-  gamepad_spi/         SPI host poller (same report format)
+  gamepad_uart/        receive-only UART HID-report parser
   input_router/        gamepad events -> UI nav + HID dispatch
   hid/                 transport-agnostic HID facade
   ble_hid/             NimBLE composite HID backend (keyboard + mouse)
@@ -49,7 +49,7 @@ components/
   audio/               I2S WAV player (sound output is I2S-only)
   narrator/            letter-name playback (conditional)
 docs/
-  HARDWARE.md          per-board pinouts + I2C gamepad wiring
+  HARDWARE.md          per-board pinouts + UART gamepad wiring
   CONFIGURATION.md     Kconfig options + NVS overrides
   MULTI_LANG.md        how to add a new keyboard layout
 ```
