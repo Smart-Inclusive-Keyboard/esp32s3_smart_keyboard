@@ -320,6 +320,20 @@ static bool grid_metrics(const kb_layout_t *l,
     return true;
 }
 
+/* Upper-case a Cyrillic codepoint for Shift rendering. Covers the
+ * Ukrainian alphabet: the main a..ya block plus Ye / I / Yi which
+ * sit outside the regular 0x20 case offset. */
+static uint32_t cyr_upper(uint32_t cp)
+{
+    if (cp >= 0x0430 && cp <= 0x044F) return cp - 0x20;
+    switch (cp) {
+    case 0x0454: return 0x0404;  /* ye */
+    case 0x0456: return 0x0406;  /* i  */
+    case 0x0457: return 0x0407;  /* yi */
+    default:     return cp;
+    }
+}
+
 static void draw_keyboard(const theme_t *th)
 {
     const kb_layout_t *l = kb_layout_active();
@@ -359,8 +373,24 @@ static void draw_keyboard(const theme_t *th)
                 continue;
             }
 
-            const char *lbl = ((s_st.mod_sticky | s_st.mod_oneshot)
-                               & HID_MOD_LSHIFT)
+            bool shift_on = ((s_st.mod_sticky | s_st.mod_oneshot)
+                             & HID_MOD_LSHIFT) != 0;
+
+            /* Non-ASCII single-glyph keys (e.g. the Ukrainian
+             * alphabet) carry a Unicode codepoint. Render the glyph
+             * directly via the 10x20 font, upper-cased while Shift is
+             * held. Falls through to the ASCII transliteration label
+             * when the cell is too small for the 10x20 glyph. */
+            if (k->glyph &&
+                cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+                uint32_t cp = shift_on ? cyr_upper(k->glyph) : k->glyph;
+                int tx = x + (cell - FONT10X20_W) / 2;
+                int ty = y + (cell - FONT10X20_H) / 2;
+                display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                continue;
+            }
+
+            const char *lbl = (shift_on && k->label_shifted[0])
                               ? k->label_shifted : k->label_unshifted;
             if (!lbl || !*lbl) continue;
 

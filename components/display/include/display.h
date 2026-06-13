@@ -67,6 +67,13 @@ void display_draw_char_10x20(int x, int y, char c,
 void display_draw_string_10x20(int x, int y, const char *s,
                                uint16_t fg, uint16_t bg, bool transparent);
 
+/* Draw a single 10x20 glyph identified by Unicode codepoint. Used
+ * for non-ASCII single-letter key labels (e.g. the Cyrillic glyphs
+ * of the Ukrainian layout). ASCII codepoints render the same glyph
+ * as display_draw_char_10x20(); unknown codepoints render '?'. */
+void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
+                                 uint16_t fg, uint16_t bg, bool transparent);
+
 /* Push the framebuffer's dirty bounding box to the panel. The
  * backend internally tracks the bbox; pixel-setting calls expand
  * it. Returns when DMA completes. */

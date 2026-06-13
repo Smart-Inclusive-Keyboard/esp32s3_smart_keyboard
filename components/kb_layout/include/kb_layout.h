@@ -23,9 +23,10 @@ extern "C" {
 #endif
 
 /* Display label is an ASCII string (1-3 chars) for portability
- * with the embedded 8x8 font. Non-ASCII layouts (UA, FR
- * dead-keys, etc.) use ASCII transliterations until a full
- * UTF-8 capable font lands. */
+ * with the embedded 8x8 font. Non-Latin layouts (e.g. UA) keep an
+ * ASCII transliteration here as a fallback but set the `glyph`
+ * field below to the real Unicode codepoint, which the renderer
+ * draws from the 10x20 font's embedded non-ASCII glyphs. */
 typedef struct {
     const char *label_unshifted;   /* what we draw idle    */
     const char *label_shifted;     /* what we draw w/Shift */
@@ -43,6 +44,15 @@ typedef struct {
      * falls back to the HID-usage / label based lookup. */
     const char *sound_unshifted;
     const char *sound_shifted;
+    /* Optional Unicode codepoint to render on-screen instead of the
+     * ASCII label. 0 means "use label_unshifted / label_shifted".
+     * Non-Latin layouts (e.g. Ukrainian) set this to the actual
+     * alphabet letter so the on-screen key shows the real glyph
+     * while label_unshifted stays an ASCII transliteration used as
+     * a fallback when the cell is too small for the 10x20 glyph.
+     * When a Shift modifier is active the renderer draws the
+     * upper-case form of this codepoint. */
+    uint16_t    glyph;
 } kb_key_t;
 
 typedef struct {

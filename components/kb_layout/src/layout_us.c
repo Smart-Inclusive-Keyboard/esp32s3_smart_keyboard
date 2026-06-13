@@ -22,9 +22,9 @@
 
 #include "kb_layout.h"
 
-#define K(lu, ls, u)         { (lu), (ls), (u), KB_KEY_SPECIAL_NONE, NULL, NULL }
-#define KSP(lu, ls, u, sp)   { (lu), (ls), (u), (sp),                NULL, NULL }
-#define KNONE                { "",   "",   HID_USAGE_NONE, KB_KEY_SPECIAL_NONE, NULL, NULL }
+#define K(lu, ls, u)         { (lu), (ls), (u), KB_KEY_SPECIAL_NONE, NULL, NULL, 0 }
+#define KSP(lu, ls, u, sp)   { (lu), (ls), (u), (sp),                NULL, NULL, 0 }
+#define KNONE                { "",   "",   HID_USAGE_NONE, KB_KEY_SPECIAL_NONE, NULL, NULL, 0 }
 
 #define ROWS 6
 #define COLS 17

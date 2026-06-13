@@ -180,6 +180,21 @@ void display_draw_string_10x20(int x, int y, const char *s,
     }
 }
 
+void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
+                                 uint16_t fg, uint16_t bg, bool transparent)
+{
+    const uint8_t *g = font_glyph_10x20_cp(cp);
+    for (int py = 0; py < FONT10X20_H; ++py) {
+        for (int px = 0; px < FONT10X20_W; ++px) {
+            if (font_pixel_in_10x20(g, px, py)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
 void display_flush(void)
 {
     if (!s_be.flush) return;

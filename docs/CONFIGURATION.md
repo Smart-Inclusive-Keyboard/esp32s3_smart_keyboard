@@ -88,7 +88,42 @@ choice is persisted to NVS by `keyboard_ui_cycle_layout()`, bound
 to the on-screen **Lng** key (right of F12). Lng rotates through
 the *enabled* languages only (see the settings menu below). US
 and Ukrainian (UA) are full layouts; German (DE) and French (FR)
-are still 1x1 placeholders.
+are still 1x1 placeholders. The Ukrainian layout renders the real
+Cyrillic letters on the keys (upper-cased while Shift is held),
+using the Cyrillic glyphs embedded in the 10x20 UI font.
+
+### Enabled languages
+
+The **Enabled languages** menu seeds which layouts start out in the
+Lng rotation on a fresh device (or after an NVS erase):
+
+| Option                  | Default | Layout              |
+| ----------------------- | ------- | ------------------- |
+| `SK_LANG_ENABLE_US`     | y       | US English          |
+| `SK_LANG_ENABLE_DE`     | n       | German (DE) stub    |
+| `SK_LANG_ENABLE_FR`     | n       | French (FR) stub    |
+| `SK_LANG_ENABLE_UA`     | y       | Ukrainian (UA)      |
+
+The compile-time default layout is always force-added to the
+enabled set regardless of these. The set can be changed at runtime
+from the settings menu (persisted to NVS). `SK_LANG_ENABLE_UA` also
+controls whether the Ukrainian narrator clips (`wav/ua_*.wav`) are
+embedded into the firmware image.
+
+### Host layout-switch hotkey
+
+When the device's active layout changes, the firmware emits
+`Ctrl+Shift+<digit>` so a host configured with matching
+input-language hotkeys switches along with it. Each language's
+digit is configurable under **Host layout-switch hotkey**; `0`
+disables the report for that language:
+
+| Option                        | Default | Sends           |
+| ----------------------------- | ------- | --------------- |
+| `SK_LAYOUT_SWITCH_DIGIT_US`   | 1       | Ctrl+Shift+1    |
+| `SK_LAYOUT_SWITCH_DIGIT_DE`   | 2       | Ctrl+Shift+2    |
+| `SK_LAYOUT_SWITCH_DIGIT_FR`   | 3       | Ctrl+Shift+3    |
+| `SK_LAYOUT_SWITCH_DIGIT_UA`   | 4       | Ctrl+Shift+4    |
 
 ## Theme
 
@@ -125,7 +160,7 @@ The external gamepad's numbered buttons map to fixed actions
 | `GP_BTN_6` | sticky AltGr toggle      | sticky AltGr      |
 | `GP_BTN_7` | unused                   | unused            |
 | `GP_BTN_8` | unused                   | unused            |
-| `GP_BTN_9` | down: keyboard mode; up: mouse mode          |
+| `GP_BTN_9` | down: mouse mode; up: keyboard mode          |
 
 The D-pad / analog stick moves the selection cursor (keyboard
 mode), the pointer (mouse mode) or the menu selection (settings
