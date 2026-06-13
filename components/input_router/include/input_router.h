@@ -7,21 +7,24 @@
  * them into UI / HID actions, and (optionally) pings the
  * narrator on selection changes.
  *
- * Button mapping (configurable later via Kconfig / on-screen
- * settings menu):
- *   D-pad     -> keyboard_ui_move() with hold-to-repeat
- *   A         -> press selected key (no modifier)
- *   X         -> Shift + selected key
- *   B         -> Ctrl  + selected key
- *   Y         -> Alt   + selected key
- *   L         -> Backspace
- *   R         -> toggle Shift sticky
- *   START     -> cycle theme
- *   SELECT    -> cycle layout
- *   L + R     -> toggle mouse mode  (chord)
+ * Button mapping (numbered buttons match the gamepad wire-report
+ * bit positions):
+ *   D-pad     -> keyboard_ui_move() with hold-to-repeat (or mouse
+ *                / settings-menu navigation depending on mode)
+ *   GP_BTN_0  -> press selected key      / left mouse click
+ *   GP_BTN_1  -> Shift + selected key    / right mouse click
+ *   GP_BTN_2  -> Space
+ *   GP_BTN_3  -> Enter
+ *   GP_BTN_4  -> Backspace
+ *   GP_BTN_5  -> Ctrl  (sticky modifier toggle)
+ *   GP_BTN_6  -> AltGr (sticky modifier toggle, right Alt)
+ *   GP_BTN_7  -> unused
+ *   GP_BTN_8  -> unused
+ *   GP_BTN_9  -> on down: keyboard mode; on up: mouse mode
  *
- * In mouse mode, the D-pad drives the cursor (8 px / poll), A
- * is left-click and B is right-click.
+ * Sticky modifiers (Shift / Ctrl / Alt / AltGr, toggled either by
+ * the on-screen modifier keys or GP_BTN_5 / GP_BTN_6) stay engaged
+ * until the next character key is pressed.
  */
 
 #include "freertos/FreeRTOS.h"

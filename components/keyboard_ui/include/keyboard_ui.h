@@ -25,6 +25,7 @@ extern "C" {
 typedef enum {
     KB_MODE_KEYBOARD = 0,
     KB_MODE_MOUSE,
+    KB_MODE_MENU,
 } keyboard_ui_mode_t;
 
 /* Initialize after display_init() so we can size the grid to the
@@ -97,6 +98,27 @@ void keyboard_ui_cycle_layout(void);
 
 /* Cycle to the next built-in theme. Persists the choice in NVS. */
 void keyboard_ui_cycle_theme(void);
+
+/* True (non-zero) if the Shift modifier (sticky or one-shot) is
+ * currently engaged. Exposed for the narrator so it speaks the
+ * shifted glyph that would actually be sent. */
+int keyboard_ui_selected_shift(void);
+
+/* Speak the currently selected key via the narrator, taking the
+ * current Shift state into account. Used by input_router on
+ * navigation so the spoken name matches what a press would send. */
+void keyboard_ui_narrate_selection(void);
+
+/* Settings menu (gamepad-navigated). The menu is modal: while it
+ * is open the on-screen keyboard is replaced with the settings
+ * list and input_router routes navigation here. The user can pick
+ * the color theme and toggle which languages take part in the Lng
+ * rotation. Choices are persisted to NVS. */
+void keyboard_ui_open_menu(void);
+void keyboard_ui_close_menu(void);
+void keyboard_ui_menu_move(int delta);     /* up/down: change selection   */
+void keyboard_ui_menu_adjust(int delta);   /* left/right: change value    */
+void keyboard_ui_menu_select(void);        /* activate the selected item  */
 
 #ifdef __cplusplus
 }

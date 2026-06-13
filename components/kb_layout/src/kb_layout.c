@@ -73,3 +73,89 @@ const kb_layout_t *kb_layout_by_name(const char *name)
     }
     return NULL;
 }
+
+int kb_layout_index_of(const kb_layout_t *l)
+{
+    for (int i = 0; i < s_count; ++i) {
+        if (s_all[i] == l) return i;
+    }
+    return -1;
+}
+
+/* ----- Enabled-language set ----- */
+
+/* Default: enable the two fully-implemented layouts (US + UA).
+ * The compile-time default layout (resolved above) is force-added
+ * so the active layout is always part of the enabled set. */
+static uint32_t s_enabled_mask;
+static bool     s_enabled_done;
+
+static uint32_t all_mask(void)
+{
+    return (s_count >= 32) ? 0xFFFFFFFFu : ((1u << s_count) - 1u);
+}
+
+static void resolve_enabled_default_once(void)
+{
+    if (s_enabled_done) return;
+    s_enabled_done = true;
+    /* US + UA by default; DE / FR are 1x1 stubs. */
+    uint32_t m = 0;
+    const kb_layout_t *us = kb_layout_by_name("US");
+    const kb_layout_t *ua = kb_layout_by_name("UA");
+    if (us) m |= 1u << kb_layout_index_of(us);
+    if (ua) m |= 1u << kb_layout_index_of(ua);
+    /* Always include the active (compile-time default) layout. */
+    int ai = kb_layout_index_of(kb_layout_active());
+    if (ai >= 0) m |= 1u << ai;
+    if (m == 0) m = 1u;  /* never empty */
+    s_enabled_mask = m & all_mask();
+}
+
+uint32_t kb_layout_enabled_mask(void)
+{
+    resolve_enabled_default_once();
+    return s_enabled_mask;
+}
+
+void kb_layout_set_enabled_mask(uint32_t mask)
+{
+    resolve_enabled_default_once();
+    mask &= all_mask();
+    if (mask == 0) return;  /* refuse to disable every language */
+    s_enabled_mask = mask;
+    /* Keep the active layout inside the enabled set. */
+    int ai = kb_layout_index_of(s_active);
+    if (ai < 0 || !(s_enabled_mask & (1u << ai))) {
+        for (int i = 0; i < s_count; ++i) {
+            if (s_enabled_mask & (1u << i)) { s_active = s_all[i]; break; }
+        }
+    }
+}
+
+bool kb_layout_is_enabled(int i)
+{
+    if (i < 0 || i >= s_count) return false;
+    return (kb_layout_enabled_mask() & (1u << i)) != 0;
+}
+
+void kb_layout_set_enabled(int i, bool on)
+{
+    if (i < 0 || i >= s_count) return;
+    uint32_t m = kb_layout_enabled_mask();
+    if (on) m |= 1u << i;
+    else    m &= ~(1u << i);
+    kb_layout_set_enabled_mask(m);
+}
+
+const kb_layout_t *kb_layout_next_enabled(const kb_layout_t *cur)
+{
+    resolve_enabled_default_once();
+    int start = kb_layout_index_of(cur);
+    if (start < 0) start = 0;
+    for (int step = 1; step <= s_count; ++step) {
+        int idx = (start + step) % s_count;
+        if (s_enabled_mask & (1u << idx)) return s_all[idx];
+    }
+    return cur;
+}

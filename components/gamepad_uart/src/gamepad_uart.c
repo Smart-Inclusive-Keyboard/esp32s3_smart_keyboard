@@ -27,6 +27,7 @@ static const char *s_names[GP_BTN_COUNT] = {
     [GP_BTN_DOWN]  = "DOWN",
     [GP_BTN_LEFT]  = "LEFT",
     [GP_BTN_RIGHT] = "RIGHT",
+    [GP_BTN_0]     = "0",
     [GP_BTN_1]     = "1",
     [GP_BTN_2]     = "2",
     [GP_BTN_3]     = "3",
@@ -36,7 +37,6 @@ static const char *s_names[GP_BTN_COUNT] = {
     [GP_BTN_7]     = "7",
     [GP_BTN_8]     = "8",
     [GP_BTN_9]     = "9",
-    [GP_BTN_10]    = "10",
 };
 
 const char *gamepad_button_name(gamepad_button_t b)
@@ -79,7 +79,7 @@ static uint32_t gamepad_parse_report(const uint8_t *r)
 
     for (int i = 0; i < 10; ++i) {
         if (buttons & (1u << i)) {
-            s |= 1u << (GP_BTN_1 + i);
+            s |= 1u << (GP_BTN_0 + i);
         }
     }
 
