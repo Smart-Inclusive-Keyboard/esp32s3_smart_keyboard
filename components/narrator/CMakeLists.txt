@@ -5,6 +5,13 @@ if(CONFIG_BOARD_HAS_PSRAM AND CONFIG_BOARD_HAS_SPEAKER AND CONFIG_NARRATOR_ENABL
     # components/narrator/wav/ -- see assets/README.md for the
     # full filename list.
     file(GLOB _wavs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "wav/*.wav")
+    # Language-specific clips are only embedded when their layout is
+    # enabled (see "Narrator WAV gating" in AGENTS.md). The base
+    # (language-neutral) clips are always kept. Ukrainian clips are
+    # named wav/ua_*.wav.
+    if(NOT CONFIG_SK_LANG_ENABLE_UA)
+        list(FILTER _wavs EXCLUDE REGEX "wav/ua_")
+    endif()
     if(_wavs)
         # narrator.c does `#include "audio.h"` and `#include
         # "kb_layout.h"`. Declare both as REQUIRES so their public

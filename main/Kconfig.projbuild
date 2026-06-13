@@ -250,6 +250,67 @@ config SK_LAYOUT_UA
 endchoice
 
 #
+# Enabled-language set. The on-screen settings menu lets the user
+# cycle the active layout through the *enabled* languages (the "Lng"
+# key) and toggle membership at runtime (persisted in NVS). These
+# options seed the default enabled set on first boot / after an NVS
+# erase. The compile-time default layout (SK_LAYOUT_DEFAULT above)
+# is always force-added to the enabled set regardless of these.
+#
+
+menu "Enabled languages"
+
+config SK_LANG_ENABLE_US
+    bool "Enable US English layout"
+    default y
+
+config SK_LANG_ENABLE_DE
+    bool "Enable German (DE) layout"
+    default n
+
+config SK_LANG_ENABLE_FR
+    bool "Enable French (FR) layout"
+    default n
+
+config SK_LANG_ENABLE_UA
+    bool "Enable Ukrainian (UA) layout"
+    default y
+
+endmenu  # Enabled languages
+
+#
+# Host-side layout switch. Many operating systems switch their input
+# language with a global hotkey. When the device's active layout
+# changes, the firmware emits Ctrl+Shift+<digit> so the host follows
+# along. Set each language's digit (0 disables the report for that
+# language). Defaults: US -> Ctrl+Shift+1, UA -> Ctrl+Shift+4.
+#
+
+menu "Host layout-switch hotkey"
+
+config SK_LAYOUT_SWITCH_DIGIT_US
+    int "US English switch digit (0 = none)"
+    default 1
+    range 0 9
+
+config SK_LAYOUT_SWITCH_DIGIT_DE
+    int "German (DE) switch digit (0 = none)"
+    default 2
+    range 0 9
+
+config SK_LAYOUT_SWITCH_DIGIT_FR
+    int "French (FR) switch digit (0 = none)"
+    default 3
+    range 0 9
+
+config SK_LAYOUT_SWITCH_DIGIT_UA
+    int "Ukrainian (UA) switch digit (0 = none)"
+    default 4
+    range 0 9
+
+endmenu  # Host layout-switch hotkey
+
+#
 # Color theme.
 #
 

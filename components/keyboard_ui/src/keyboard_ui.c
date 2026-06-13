@@ -701,12 +701,36 @@ const kb_key_t *keyboard_ui_selected_key(void)
     return kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
 }
 
+/* Host-side layout switch. When the active layout changes we emit
+ * Ctrl+Shift+<digit> so a host configured with matching language
+ * hotkeys follows the device. The per-language digit comes from
+ * Kconfig (SK_LAYOUT_SWITCH_DIGIT_*); 0 disables the report. */
+static int layout_switch_digit(const kb_layout_t *l)
+{
+    if (!l) return 0;
+    if (strcmp(l->name, "US") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_US;
+    if (strcmp(l->name, "DE") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_DE;
+    if (strcmp(l->name, "FR") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_FR;
+    if (strcmp(l->name, "UA") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_UA;
+    return 0;
+}
+
+static void send_layout_switch_hid(const kb_layout_t *l)
+{
+    int d = layout_switch_digit(l);
+    if (d < 1 || d > 9) return;  /* 0 (or out of range) = disabled */
+    uint8_t usage = (uint8_t)(HID_USAGE_1 + (d - 1));
+    hid_send_key(HID_MOD_LCTRL | HID_MOD_LSHIFT, usage);
+    hid_release_all();
+}
+
 void keyboard_ui_cycle_layout(void)
 {
     const kb_layout_t *cur = kb_layout_active();
     const kb_layout_t *nxt = kb_layout_next_enabled(cur);
     if (!nxt) nxt = cur;
     kb_layout_set_active_by_name(nxt->name);
+    if (nxt != cur) send_layout_switch_hid(nxt);
     /* Clamp selection to new grid bounds. */
     if (s_st.sel_row >= nxt->rows) s_st.sel_row = nxt->rows - 1;
     if (s_st.sel_col >= nxt->cols) s_st.sel_col = nxt->cols - 1;
@@ -778,11 +802,13 @@ void keyboard_ui_menu_adjust(int delta)
         keyboard_ui_cycle_theme();   /* persists + redraws */
     } else if (idx >= 1 && idx <= nl) {
         int li = idx - 1;
+        const kb_layout_t *before = kb_layout_active();
         kb_layout_set_enabled(li, !kb_layout_is_enabled(li));
         /* Disabling the active layout can switch the active layout
          * (kb_layout keeps the active one in the enabled set); make
          * sure the selection cursor stays within the new grid. */
         const kb_layout_t *a = kb_layout_active();
+        if (a != before) send_layout_switch_hid(a);
         if (s_st.sel_row >= a->rows) s_st.sel_row = a->rows - 1;
         if (s_st.sel_col >= a->cols) s_st.sel_col = a->cols - 1;
         nvs_save_strings();

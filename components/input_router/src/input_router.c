@@ -13,7 +13,7 @@
  *   GP_BTN_6  AltGr  (sticky modifier toggle, right Alt)
  *   GP_BTN_7  unused
  *   GP_BTN_8  unused
- *   GP_BTN_9  on down -> keyboard mode, on up -> mouse mode
+ *   GP_BTN_9  on down -> mouse mode, on up -> keyboard mode
  *
  * The D-pad / analog directions move the selection cursor (or the
  * mouse pointer in mouse mode, or the menu selection while the
@@ -152,8 +152,8 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         keyboard_ui_toggle_mod(HID_MOD_RALT);
         break;
     case GP_BTN_9:
-        /* On down: enter keyboard mode. */
-        keyboard_ui_set_mode(KB_MODE_KEYBOARD);
+        /* On down: enter mouse mode. */
+        keyboard_ui_set_mode(KB_MODE_MOUSE);
         break;
     case GP_BTN_7:
     case GP_BTN_8:
@@ -167,8 +167,8 @@ static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
     if (b == GP_BTN_9) {
-        /* On up: enter mouse mode. */
-        keyboard_ui_set_mode(KB_MODE_MOUSE);
+        /* On up: enter keyboard mode. */
+        keyboard_ui_set_mode(KB_MODE_KEYBOARD);
     }
 }
 

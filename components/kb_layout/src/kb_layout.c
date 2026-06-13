@@ -95,16 +95,48 @@ static uint32_t all_mask(void)
     return (s_count >= 32) ? 0xFFFFFFFFu : ((1u << s_count) - 1u);
 }
 
+/* Kconfig bool symbols are #defined to 1 when set and undefined
+ * otherwise; normalise them to 0/1 compile-time constants. */
+#ifdef CONFIG_SK_LANG_ENABLE_US
+#define SK_EN_US 1
+#else
+#define SK_EN_US 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_DE
+#define SK_EN_DE 1
+#else
+#define SK_EN_DE 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_FR
+#define SK_EN_FR 1
+#else
+#define SK_EN_FR 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_UA
+#define SK_EN_UA 1
+#else
+#define SK_EN_UA 0
+#endif
+
 static void resolve_enabled_default_once(void)
 {
     if (s_enabled_done) return;
     s_enabled_done = true;
-    /* US + UA by default; DE / FR are 1x1 stubs. */
+    /* Seed the enabled set from the Kconfig per-language switches
+     * (SK_LANG_ENABLE_*). Defaults enable US + UA; DE / FR are
+     * 1x1 stubs and off by default. */
     uint32_t m = 0;
-    const kb_layout_t *us = kb_layout_by_name("US");
-    const kb_layout_t *ua = kb_layout_by_name("UA");
-    if (us) m |= 1u << kb_layout_index_of(us);
-    if (ua) m |= 1u << kb_layout_index_of(ua);
+    const struct { const char *name; bool on; } cfg[] = {
+        { "US", SK_EN_US },
+        { "DE", SK_EN_DE },
+        { "FR", SK_EN_FR },
+        { "UA", SK_EN_UA },
+    };
+    for (size_t i = 0; i < sizeof(cfg) / sizeof(cfg[0]); ++i) {
+        if (!cfg[i].on) continue;
+        const kb_layout_t *l = kb_layout_by_name(cfg[i].name);
+        if (l) m |= 1u << kb_layout_index_of(l);
+    }
     /* Always include the active (compile-time default) layout. */
     int ai = kb_layout_index_of(kb_layout_active());
     if (ai >= 0) m |= 1u << ai;

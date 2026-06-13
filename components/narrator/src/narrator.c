@@ -89,7 +89,10 @@ WAV_SYMS(delete) WAV_SYMS(end)    WAV_SYMS(pagedown)
 WAV_SYMS(up)     WAV_SYMS(down)   WAV_SYMS(left)    WAV_SYMS(right)
 
 /* Ukrainian narrator clips (keyed by Unicode codepoint / symbol
- * name) used by the UA layout's per-key sound tokens. */
+ * name) used by the UA layout's per-key sound tokens. Only embedded
+ * when the Ukrainian layout is enabled (CONFIG_SK_LANG_ENABLE_UA),
+ * so reference their symbols under the same gate. */
+#if CONFIG_SK_LANG_ENABLE_UA
 WAV_SYMS(ua_0) WAV_SYMS(ua_1) WAV_SYMS(ua_2) WAV_SYMS(ua_3) WAV_SYMS(ua_4)
 WAV_SYMS(ua_5) WAV_SYMS(ua_6) WAV_SYMS(ua_7) WAV_SYMS(ua_8) WAV_SYMS(ua_9)
 WAV_SYMS(ua_apostrophe) WAV_SYMS(ua_backslash) WAV_SYMS(ua_comma) WAV_SYMS(ua_equals) WAV_SYMS(ua_minus)
@@ -103,6 +106,7 @@ WAV_SYMS(ua_u0441) WAV_SYMS(ua_u0442) WAV_SYMS(ua_u0443) WAV_SYMS(ua_u0444) WAV_
 WAV_SYMS(ua_u0446) WAV_SYMS(ua_u0447) WAV_SYMS(ua_u0448) WAV_SYMS(ua_u0449) WAV_SYMS(ua_u044c)
 WAV_SYMS(ua_u044e) WAV_SYMS(ua_u044f) WAV_SYMS(ua_u0454) WAV_SYMS(ua_u0456) WAV_SYMS(ua_u0457)
 WAV_SYMS(ua_u20b4) WAV_SYMS(ua_u2116)
+#endif /* CONFIG_SK_LANG_ENABLE_UA */
 
 typedef struct {
     uint8_t hid_usage;
@@ -192,6 +196,7 @@ typedef struct {
 
 #define TOK(name) { #name, _binary_##name##_wav_start, _binary_##name##_wav_end }
 
+#if CONFIG_SK_LANG_ENABLE_UA
 static const token_clip_t S_TOKEN_CLIPS[] = {
     TOK(ua_0),
     TOK(ua_1),
@@ -256,6 +261,7 @@ static const token_clip_t S_TOKEN_CLIPS[] = {
     TOK(ua_u20b4),
     TOK(ua_u2116),
 };
+#endif /* CONFIG_SK_LANG_ENABLE_UA */
 
 static const clip_t *find_clip(uint8_t usage)
 {
@@ -284,6 +290,7 @@ void narrator_speak_hid(unsigned hid_usage)
 void narrator_speak_token(const char *token)
 {
     if (!token || !*token) return;
+#if CONFIG_SK_LANG_ENABLE_UA
     for (size_t i = 0; i < sizeof(S_TOKEN_CLIPS) / sizeof(S_TOKEN_CLIPS[0]); ++i) {
         if (strcmp(S_TOKEN_CLIPS[i].token, token) == 0) {
             audio_play_wav(S_TOKEN_CLIPS[i].start,
@@ -291,6 +298,7 @@ void narrator_speak_token(const char *token)
             return;
         }
     }
+#endif
 }
 
 void narrator_speak_key_ex(const kb_key_t *k, bool shifted)

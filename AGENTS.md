@@ -200,6 +200,31 @@ WAV references in `components/narrator/src/narrator.c` must be
 linker drops the embed objects from the static archive and
 narration goes silent without an error.
 
+### Narrator WAV gating (only embed enabled-layout clips)
+
+The narrator must only embed WAV clips that belong to an **enabled**
+keyboard layout. Language-neutral clips (Latin letters, digits,
+punctuation, modifiers, F-keys, navigation/arrow keys) are always
+embedded. Language-specific clips are named with a per-language
+prefix (Ukrainian uses `wav/ua_*.wav`) and are embedded only when
+that layout is enabled via its `CONFIG_SK_LANG_ENABLE_*` Kconfig
+symbol.
+
+Keep these two sides in lock-step:
+
+- `components/narrator/CMakeLists.txt` filters the embedded file
+  list (for example `list(FILTER _wavs EXCLUDE REGEX "wav/ua_")`
+  when `CONFIG_SK_LANG_ENABLE_UA` is off).
+- `components/narrator/src/narrator.c` wraps that language's
+  `WAV_SYMS(...)` externs and its token table under the same
+  `#if CONFIG_SK_LANG_ENABLE_*` gate, because the embed symbols
+  only exist when the clips are embedded (strong externs to a
+  missing object are a link error).
+
+When adding a new non-Latin layout, add its clips under a unique
+`wav/<lang>_*.wav` prefix and gate both files on the layout's
+`CONFIG_SK_LANG_ENABLE_<LANG>` symbol.
+
 ## Where to make common changes
 
 | Task                                  | Touch these files                                     |
