@@ -245,7 +245,7 @@ config SK_LAYOUT_FR
     bool "French (FR) - layout stub"
 
 config SK_LAYOUT_UA
-    bool "Ukrainian (UA) - layout stub"
+    bool "Ukrainian (UA)"
 
 endchoice
 

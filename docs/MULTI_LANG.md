@@ -29,6 +29,13 @@ The keyboard layout is a static `kb_layout_t` describing a
    Tab, Escape) so the renderer colours them with the modifier
    palette; use `KNONE` for empty grid slots.
 
+   Two special keys are reserved for UI actions and carry no HID
+   usage: `KB_KEY_SPECIAL_LANG` (the on-screen **Lng** key, which
+   rotates through the enabled languages) and
+   `KB_KEY_SPECIAL_MENU` (the **Mnu** key, which opens the
+   gamepad-navigated settings menu). The reference layouts place
+   them on the function-key row, just right of F12.
+
 4. **Add the file to the component**: append it to
    `components/kb_layout/CMakeLists.txt`.
 
@@ -40,13 +47,30 @@ The keyboard layout is a static `kb_layout_t` describing a
    `config SK_LAYOUT_<LANG>` entry to `Kconfig.projbuild` and
    teaching `kconfig_default_name()` about it.
 
+## Narrating non-Latin layouts
+
+The on-screen labels must be 7-bit ASCII (see the caveat below),
+so a non-Latin layout draws Latin transliterations. To make the
+narrator still speak the real character, give each key explicit
+narrator clip tokens via the `sound_unshifted` / `sound_shifted`
+fields of `kb_key_t` (the `KS(...)` macro in `layout_ua.c` is the
+reference). A token names a WAV file under
+`components/narrator/wav/<token>.wav` and must be registered in
+the `S_TOKEN_CLIPS[]` table in
+`components/narrator/src/narrator.c`. The Ukrainian layout keys
+its clips by Unicode codepoint (e.g. `ua_u0430` for the letter
+`a`). When a key carries no token the narrator falls back to the
+language-neutral clip resolved from its HID usage.
+
 ## Caveats
 
 The embedded font (`components/fonts/`) is the public-domain
 font8x8 covering ASCII 0x20..0x7E. Non-ASCII glyphs (umlauts,
-accents, Cyrillic) currently render as a `?` fallback. The
-upstream Rust project's `keymap_de.toml`, `keymap_fr.toml`, and
-`keymap_ua.toml` use such glyphs, so the German / French /
-Ukrainian layouts ship as 1x1 placeholders until a UTF-8 font
-is in place. The plumbing (NVS persistence, status bar label,
-runtime cycling) is wired up and ready.
+accents, Cyrillic) cannot be drawn directly, so layouts use
+short Latin transliterations for their on-screen labels (the
+Ukrainian layout, for example, sends the HID usage of the
+physical QWERTY position so a host set to the Ukrainian layout
+emits the Cyrillic glyph, while the narrator speaks the real
+letter via per-key sound tokens). The German (`DE`) and French
+(`FR`) layouts still ship as 1x1 placeholders until they are
+filled in the same way.

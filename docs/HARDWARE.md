@@ -59,7 +59,7 @@ emitted by the companion gamepad firmware
 ([clackups/esp32s3_dual_foc_gp](https://github.com/clackups/esp32s3_dual_foc_gp)):
 
 ```
-byte 0:  buttons 0..7  (bit i set = HID button i+1 pressed)
+byte 0:  buttons 0..7  (bit i set = GP_BTN_i pressed)
 byte 1:  buttons 8..9  (bits 0..1) + 6 bits padding
 byte 2:  X axis, signed 16-bit LE low byte
 byte 3:  X axis high byte (-32767..32767, 0 = centred, positive = right)
@@ -67,20 +67,29 @@ byte 4:  Y axis, signed 16-bit LE low byte
 byte 5:  Y axis high byte (-32767..32767, 0 = centred, positive = down)
 ```
 
-The firmware refers to gamepad buttons by their HID number
-(1..10) rather than by vendor letter names (A/B/X/Y or
-Cross/Circle/Square/Triangle), so the same code works across
-controllers whose silkscreens disagree. The default `input_router`
-mapping is:
+The firmware refers to gamepad buttons by their zero-based bit
+position (`GP_BTN_0`..`GP_BTN_9`) rather than by vendor letter
+names (A/B/X/Y or Cross/Circle/Square/Triangle), so the same code
+works across controllers whose silkscreens disagree. Bit `i` of
+the buttons bitmap triggers `GP_BTN_i`. The `input_router` mapping
+is:
 
-- button 1 -> press selected key (or left mouse click in mouse mode)
-- button 2 -> press with Ctrl (or right mouse click in mouse mode)
-- button 3 -> press with Shift
-- button 4 -> press with Alt
-- button 5 -> Backspace (or "toggle mouse mode" when chorded with 6)
-- button 6 -> sticky Shift toggle (or "toggle mouse mode" when chorded with 5)
-- button 7 -> cycle keyboard layout
-- button 8 -> cycle color theme
+- `GP_BTN_0` -> press selected key (or left mouse click in mouse mode)
+- `GP_BTN_1` -> Shift + selected key (or right mouse click in mouse mode)
+- `GP_BTN_2` -> Space
+- `GP_BTN_3` -> Enter
+- `GP_BTN_4` -> Backspace
+- `GP_BTN_5` -> sticky Ctrl toggle
+- `GP_BTN_6` -> sticky AltGr toggle (right Alt)
+- `GP_BTN_7` -> unused
+- `GP_BTN_8` -> unused
+- `GP_BTN_9` -> on down: keyboard mode; on up: mouse mode
+
+Sticky modifiers (Shift / Ctrl / Alt / AltGr) stay engaged until
+the next character key is pressed. The keyboard layout is changed
+with the on-screen **Lng** key and the colour theme / enabled
+languages from the **Mnu** settings menu (both on the function-key
+row, right of F12).
 
 ### UART transport
 

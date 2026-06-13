@@ -84,28 +84,71 @@ the ~60 KB it occupies in flash + ~30 KB in RAM.
 ## Keyboard layout
 
 `SK_LAYOUT_DEFAULT` is the compile-time default. The runtime
-choice is persisted to NVS by `keyboard_ui_cycle_layout()` (bound
-to the **Select** button by default) so power-cycling preserves
-the last selection.
+choice is persisted to NVS by `keyboard_ui_cycle_layout()`, bound
+to the on-screen **Lng** key (right of F12). Lng rotates through
+the *enabled* languages only (see the settings menu below). US
+and Ukrainian (UA) are full layouts; German (DE) and French (FR)
+are still 1x1 placeholders.
 
 ## Theme
 
-Same model as the layout: a Kconfig default that can be cycled
-at runtime via **Start** (bound to `keyboard_ui_cycle_theme()`).
+Same model as the layout: a Kconfig default that can be changed
+at runtime from the settings menu (`keyboard_ui_cycle_theme()`).
 Five built-ins ship: `green_on_black` (default),
 `darkgreen_on_black`, `white_on_black`, `black_on_white`,
 `default`.
+
+## Settings menu
+
+The on-screen **Mnu** key (right of F12) opens a modal,
+gamepad-navigated settings menu. While it is open the keyboard is
+replaced by the menu and the gamepad routes here: Up/Down move the
+selection, Left/Right change the highlighted value, and the action
+button (`GP_BTN_0`) activates it. The menu lets the user pick the
+colour theme and toggle which languages take part in the Lng
+rotation. At least one language is always enabled and the active
+language can never be disabled. Choices persist to NVS.
+
+## Gamepad buttons
+
+The external gamepad's numbered buttons map to fixed actions
+(`components/input_router`):
+
+| Button     | Keyboard mode            | Mouse mode        |
+| ---------- | ------------------------ | ----------------- |
+| `GP_BTN_0` | press selected key       | left click        |
+| `GP_BTN_1` | Shift + selected key     | right click       |
+| `GP_BTN_2` | Space                    | Space             |
+| `GP_BTN_3` | Enter                    | Enter             |
+| `GP_BTN_4` | Backspace                | Backspace         |
+| `GP_BTN_5` | sticky Ctrl toggle       | sticky Ctrl       |
+| `GP_BTN_6` | sticky AltGr toggle      | sticky AltGr      |
+| `GP_BTN_7` | unused                   | unused            |
+| `GP_BTN_8` | unused                   | unused            |
+| `GP_BTN_9` | down: keyboard mode; up: mouse mode          |
+
+The D-pad / analog stick moves the selection cursor (keyboard
+mode), the pointer (mouse mode) or the menu selection (settings
+menu). Shift / Ctrl / Alt / AltGr are **sticky**: toggling them
+(via `GP_BTN_5` / `GP_BTN_6` or the on-screen modifier keys) holds
+the modifier until the next character key is pressed.
 
 ## Audio / narrator (conditional)
 
 | Option                | Default | Purpose                         |
 | --------------------- | ------- | ------------------------------- |
-| `NARRATOR_ENABLE`     | y       | speak each selected key         |
+| `NARRATOR_ENABLE`     | y       | speak each key as it is sent    |
 | `AUDIO_I2S_PORT`      | 0       | I2S port (0 or 1)               |
 | `AUDIO_I2S_BCLK_GPIO` | 5       |                                 |
 | `AUDIO_I2S_LRCK_GPIO` | 6       |                                 |
 | `AUDIO_I2S_DOUT_GPIO` | 7       |                                 |
 | `AUDIO_VOLUME`        | 70      | 0..100, applied digitally       |
+
+The narrator pronounces the letter or symbol that a gamepad
+action sends, taking the current Shift state into account. The
+Ukrainian layout ships its own clip set so the spoken name matches
+the Cyrillic character the host receives, not the ASCII
+transliteration drawn on screen.
 
 Sound output is **always** I2S -- there is no PWM / internal-DAC
 fallback. On boards without `BOARD_HAS_SPEAKER` selected the
@@ -116,10 +159,11 @@ audio + narrator components compile to no-op stubs so calls from
 
 Runtime preferences live under the `sk_ui` NVS namespace:
 
-| Key      | Type | Set by                          |
-| -------- | ---- | ------------------------------- |
-| `layout` | str  | `keyboard_ui_cycle_layout()`    |
-| `theme`  | str  | `keyboard_ui_cycle_theme()`     |
+| Key        | Type | Set by                          |
+| ---------- | ---- | ------------------------------- |
+| `layout`   | str  | `keyboard_ui_cycle_layout()`    |
+| `theme`    | str  | `keyboard_ui_cycle_theme()`     |
+| `langmask` | u32  | settings menu (enabled langs)   |
 
 To reset to the Kconfig defaults, erase the namespace from a
 serial console or wipe NVS with `idf.py erase-flash`.
