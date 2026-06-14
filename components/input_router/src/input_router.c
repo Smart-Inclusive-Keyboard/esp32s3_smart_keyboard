@@ -254,16 +254,17 @@ static int axis_to_delta(int axis, int max_step)
     int span = AXIS_FULL_SCALE - dz;
     if (span <= 0) span = 1;
 
-    /* Normalised deflection past the dead-zone, 0 < off <= span.
-     * delta = base + (max_step - base) * (off / span)^2, with a
-     * base of 1 so motion starts immediately on leaving the
-     * dead-zone. 64-bit math avoids overflow when squaring. */
-    long off = axis - dz;
+    /* Normalised deflection past the dead-zone, 0 < frac <= 1.
+     * delta = base + (max_step - base) * frac^2, with a base of 1 so
+     * motion starts immediately on leaving the dead-zone. Use 32-bit
+     * float for the squared term: integer math would overflow a
+     * 32-bit int (off*off alone reaches ~9.5e8 and the (max_step-1)
+     * factor pushes it past INT_MAX), and `long` is only 32 bits on
+     * this target. */
     int base = 1;
     if (max_step < base) max_step = base;
-    long accel = (long)(max_step - base) * off * off
-                 / ((long)span * span);
-    int delta = base + (int)accel;
+    float frac = (float)(axis - dz) / (float)span;   /* 0..1 */
+    int delta = base + (int)((float)(max_step - base) * frac * frac);
 
     if (delta > MOUSE_DELTA_MAX) delta = MOUSE_DELTA_MAX;
     return sign * delta;
