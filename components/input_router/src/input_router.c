@@ -60,6 +60,9 @@ static const char *TAG = "input_router";
  * when (re-)entering or leaving mouse mode. */
 static bool s_scroll_mode;
 
+#define SCROLL_INTERVAL_MS 200
+static uint32_t last_scroll_report_time = 0;
+
 /* Per-button state, used to drive hold-to-repeat. */
 typedef struct {
     bool     down;
@@ -273,7 +276,7 @@ static int axis_to_delta(int axis, int max_step)
 /* Read the live analog axes and, if either is outside the
  * dead-zone, emit a proportional mouse-motion report. Called
  * every poll while in mouse mode. */
-static void mouse_axes_apply(void)
+static void mouse_axes_apply(uint32_t now)
 {
     int16_t ax = 0, ay = 0;
     gamepad_uart_get_axes(&ax, &ay);
@@ -281,20 +284,21 @@ static void mouse_axes_apply(void)
     int max_step = keyboard_ui_mouse_max_step();
 
     if (s_scroll_mode) {
-        /* Scroll sub-mode: the axes drive wheel reports instead of
-         * pointer motion, using the very same slow-start /
-         * position-accelerated curve as the pointer. Wheel detents
-         * are far coarser than pixels, so the selected speed's
-         * max step is scaled down to keep a full-deflection scroll
-         * usable. The HID mouse report exposes a single (vertical)
-         * wheel, so the Y axis is mapped to it; pushing the stick
-         * up scrolls up (wheel positive = up, while the Y axis is
-         * positive downward, hence the negation). */
-        int scroll_max = (max_step + 5) / 6;
-        if (scroll_max < 1) scroll_max = 1;
-        int wheel = -axis_to_delta(ay, scroll_max);
-        if (wheel) {
-            hid_send_mouse(0, 0, 0, wheel);
+        if(now >= last_scroll_report_time + SCROLL_INTERVAL_MS) {
+            /* Scroll sub-mode: the axes drive wheel reports instead of
+             * pointer motion, using the very same slow-start /
+             * position-accelerated curve as the pointer. The HID mouse
+             * report exposes a single (vertical) wheel, so the Y axis is
+             * mapped to it; pushing the stick up scrolls up (wheel
+             * positive = up, while the Y axis is positive downward, hence
+             * the negation). */
+            last_scroll_report_time = now;
+            int scroll_max = max_step;
+            if (scroll_max < 1) scroll_max = 1;
+            int wheel = -axis_to_delta(ay, scroll_max);
+            if (wheel) {
+                hid_send_mouse(0, 0, 0, wheel);
+            }
         }
         return;
     }
@@ -329,7 +333,7 @@ static void router_task(void *arg)
          * the cursor straight from the live analog axes every
          * poll (~20 ms) so its speed tracks the stick deflection. */
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-            mouse_axes_apply();
+            mouse_axes_apply(now);
         }
     }
 }
