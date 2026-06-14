@@ -9,8 +9,8 @@
  *   GP_BTN_2  Space
  *   GP_BTN_3  Enter
  *   GP_BTN_4  Backspace
- *   GP_BTN_5  Ctrl   (sticky modifier toggle)
- *   GP_BTN_6  AltGr  (sticky modifier toggle, right Alt)
+ *   GP_BTN_5  Ctrl + selected key   (like GP_BTN_0 with Ctrl held)
+ *   GP_BTN_6  AltGr + selected key  (like GP_BTN_0 with AltGr held)
  *   GP_BTN_7  unused
  *   GP_BTN_8  unused
  *   GP_BTN_9  on down -> mouse mode, on up -> keyboard mode
@@ -97,6 +97,29 @@ static void send_fixed(uint8_t usage)
     narrator_speak_hid(usage);
 }
 
+/* Perform the GP_BTN_0 "action" press, optionally with an extra
+ * one-shot modifier (Ctrl / AltGr) latched for the keypress. */
+static void press_action(uint8_t extra_mod)
+{
+    switch (keyboard_ui_get_mode()) {
+    case KB_MODE_MENU:
+        keyboard_ui_menu_select();
+        break;
+    case KB_MODE_MOUSE:
+        hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
+        hid_send_mouse(0, 0, 0, 0);
+        break;
+    case KB_MODE_KEYBOARD:
+    default:
+        /* Normal keypress: applies + clears sticky modifiers and
+         * narrates inside keyboard_ui_press_current(). The optional
+         * one-shot modifier is consumed by that same press. */
+        if (extra_mod) keyboard_ui_oneshot_mod(extra_mod);
+        keyboard_ui_press_current();
+        break;
+    }
+}
+
 static void handle_down(gamepad_button_t b, uint32_t now)
 {
     s_b[b].down = true;
@@ -112,16 +135,7 @@ static void handle_down(gamepad_button_t b, uint32_t now)
 
     switch (b) {
     case GP_BTN_0:
-        if (mode == KB_MODE_MENU) {
-            keyboard_ui_menu_select();
-        } else if (mode == KB_MODE_MOUSE) {
-            hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
-            hid_send_mouse(0, 0, 0, 0);
-        } else {
-            /* Normal keypress: applies + clears sticky modifiers
-             * and narrates inside keyboard_ui_press_current(). */
-            keyboard_ui_press_current();
-        }
+        press_action(0);
         break;
     case GP_BTN_1:
         if (mode == KB_MODE_MOUSE) {
@@ -144,12 +158,12 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         send_fixed(HID_USAGE_BACKSPACE);
         break;
     case GP_BTN_5:
-        /* Sticky Ctrl: held until the next character is pressed. */
-        keyboard_ui_toggle_mod(HID_MOD_LCTRL);
+        /* Like GP_BTN_0 but with Ctrl held for the keypress. */
+        press_action(HID_MOD_LCTRL);
         break;
     case GP_BTN_6:
-        /* Sticky AltGr (right Alt). */
-        keyboard_ui_toggle_mod(HID_MOD_RALT);
+        /* Like GP_BTN_0 but with AltGr (right Alt) held. */
+        press_action(HID_MOD_RALT);
         break;
     case GP_BTN_9:
         /* On down: enter mouse mode. */

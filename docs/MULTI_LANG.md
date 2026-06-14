@@ -9,8 +9,7 @@ The keyboard layout is a static `kb_layout_t` describing a
 ## Steps
 
 1. **Pick a short identifier** (`"US"`, `"DE"`, `"FR"`, `"UA"`,
-   ...). It is used both as the menu label in the status bar
-   and as the value persisted in NVS.
+   ...). It is used as the menu label in the status bar.
 
 2. **Copy `layout_us.c`** to `layout_<lang>.c`.
 
@@ -44,8 +43,11 @@ The keyboard layout is a static `kb_layout_t` describing a
    `s_all[]`.
 
 6. **Surface it in Kconfig** by adding a new
-   `config SK_LAYOUT_<LANG>` entry to `Kconfig.projbuild` and
-   teaching `kconfig_default_name()` about it.
+   `config SK_LAYOUT_<LANG>` entry and a `config
+   SK_LANG_ENABLE_<LANG>` switch to `Kconfig.projbuild`, then teach
+   `lang_available_name()` in `kb_layout.c` about the new identifier
+   so the layout is recognised as available when its
+   `SK_LANG_ENABLE_<LANG>` switch is set.
 
 ## Non-Latin on-screen glyphs
 

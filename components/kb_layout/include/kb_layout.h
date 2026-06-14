@@ -167,8 +167,9 @@ extern const kb_layout_t kb_layout_de;
 extern const kb_layout_t kb_layout_fr;
 extern const kb_layout_t kb_layout_ua;
 
-/* Active layout (defaults via Kconfig, runtime override via
- * kb_layout_set_active_by_name() persisted in NVS by the UI). */
+/* Active layout. Defaults to the first available (Kconfig-activated)
+ * layout at boot; runtime override via kb_layout_set_active_by_name().
+ * The active layout is not persisted across reboots. */
 const kb_layout_t *kb_layout_active(void);
 bool               kb_layout_set_active_by_name(const char *name);
 
@@ -177,6 +178,11 @@ int                kb_layout_count(void);
 const kb_layout_t *kb_layout_by_index(int i);
 const kb_layout_t *kb_layout_by_name(const char *name);
 int                kb_layout_index_of(const kb_layout_t *l);
+
+/* Compile-time availability: true when layout index i is activated
+ * via its SK_LANG_ENABLE_* Kconfig switch. Only available layouts
+ * are offered in the settings menu. */
+bool               kb_layout_is_available(int i);
 
 /* Enabled-language set. The on-screen settings menu lets the user
  * choose which of the built-in layouts participate in the Lng

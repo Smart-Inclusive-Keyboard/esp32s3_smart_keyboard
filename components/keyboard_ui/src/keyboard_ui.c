@@ -67,9 +67,9 @@ static void nvs_save_strings(void)
 {
     nvs_handle_t h;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) != ESP_OK) return;
-    nvs_set_str(h, "layout", kb_layout_active()->name);
+    /* The active language is intentionally not persisted; the device
+     * always boots with the first available layout. */
     nvs_set_str(h, "theme",  theme_active()->name);
-    nvs_set_u32(h, "langmask", kb_layout_enabled_mask());
     nvs_commit(h);
     nvs_close(h);
 }
@@ -80,16 +80,6 @@ static void nvs_load_strings(void)
     if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) != ESP_OK) return;
     char buf[16];
     size_t len = sizeof(buf);
-    uint32_t mask = 0;
-    /* Restore the enabled-language set before the active layout so
-     * the set always contains the active layout. */
-    if (nvs_get_u32(h, "langmask", &mask) == ESP_OK && mask) {
-        kb_layout_set_enabled_mask(mask);
-    }
-    if (nvs_get_str(h, "layout", buf, &len) == ESP_OK) {
-        kb_layout_set_active_by_name(buf);
-    }
-    len = sizeof(buf);
     if (nvs_get_str(h, "theme", buf, &len) == ESP_OK) {
         theme_set_active_by_name(buf);
     }
@@ -458,9 +448,30 @@ static void draw_mouse_overlay(const theme_t *th)
  *   n_lang+1     Close
  */
 
-static int menu_lang_count(void) { return kb_layout_count(); }
+static int menu_lang_count(void)
+{
+    int n = 0;
+    for (int i = 0; i < kb_layout_count(); ++i) {
+        if (kb_layout_is_available(i)) ++n;
+    }
+    return n;
+}
 static int menu_item_count(void) { return menu_lang_count() + 2; }
 static int menu_close_index(void) { return menu_lang_count() + 1; }
+
+/* Map the nth (0-based) language row to its global layout index,
+ * skipping layouts not activated in Kconfig. Returns -1 if out of
+ * range. */
+static int menu_lang_layout_index(int nth)
+{
+    int c = 0;
+    for (int i = 0; i < kb_layout_count(); ++i) {
+        if (!kb_layout_is_available(i)) continue;
+        if (c == nth) return i;
+        ++c;
+    }
+    return -1;
+}
 
 static void menu_item_text(int idx, char *out, size_t n)
 {
@@ -468,10 +479,11 @@ static void menu_item_text(int idx, char *out, size_t n)
     if (idx == 0) {
         snprintf(out, n, "Theme: %s", theme_active()->name);
     } else if (idx >= 1 && idx <= nl) {
-        const kb_layout_t *l = kb_layout_by_index(idx - 1);
+        int li = menu_lang_layout_index(idx - 1);
+        const kb_layout_t *l = kb_layout_by_index(li);
         snprintf(out, n, "Lang %s: %s",
                  l ? l->name : "?",
-                 kb_layout_is_enabled(idx - 1) ? "ON" : "off");
+                 kb_layout_is_enabled(li) ? "ON" : "off");
     } else {
         snprintf(out, n, "Close");
     }
@@ -831,7 +843,8 @@ void keyboard_ui_menu_adjust(int delta)
         (void)delta;
         keyboard_ui_cycle_theme();   /* persists + redraws */
     } else if (idx >= 1 && idx <= nl) {
-        int li = idx - 1;
+        int li = menu_lang_layout_index(idx - 1);
+        if (li < 0) return;
         const kb_layout_t *before = kb_layout_active();
         kb_layout_set_enabled(li, !kb_layout_is_enabled(li));
         /* Disabling the active layout can switch the active layout

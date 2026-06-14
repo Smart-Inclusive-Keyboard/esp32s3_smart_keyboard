@@ -8,6 +8,29 @@
 
 #include "sdkconfig.h"
 
+/* Kconfig bool symbols are #defined to 1 when set and undefined
+ * otherwise; normalise them to 0/1 compile-time constants. */
+#ifdef CONFIG_SK_LANG_ENABLE_US
+#define SK_EN_US 1
+#else
+#define SK_EN_US 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_DE
+#define SK_EN_DE 1
+#else
+#define SK_EN_DE 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_FR
+#define SK_EN_FR 1
+#else
+#define SK_EN_FR 0
+#endif
+#ifdef CONFIG_SK_LANG_ENABLE_UA
+#define SK_EN_UA 1
+#else
+#define SK_EN_UA 0
+#endif
+
 static const kb_layout_t *const s_all[] = {
     &kb_layout_us,
     &kb_layout_de,
@@ -19,19 +42,22 @@ static const int s_count = sizeof(s_all) / sizeof(s_all[0]);
 
 static const kb_layout_t *s_active = &kb_layout_us;
 
-static const char *kconfig_default_name(void)
+/* Compile-time availability of a layout, driven by the per-language
+ * SK_LANG_ENABLE_* Kconfig switches. Only "available" layouts are
+ * offered in the settings menu and participate in the rotation. */
+static bool lang_available_name(const char *name)
 {
-#if defined(CONFIG_SK_LAYOUT_US)
-    return "US";
-#elif defined(CONFIG_SK_LAYOUT_DE)
-    return "DE";
-#elif defined(CONFIG_SK_LAYOUT_FR)
-    return "FR";
-#elif defined(CONFIG_SK_LAYOUT_UA)
-    return "UA";
-#else
-    return "US";
-#endif
+    if (strcmp(name, "US") == 0) return SK_EN_US;
+    if (strcmp(name, "DE") == 0) return SK_EN_DE;
+    if (strcmp(name, "FR") == 0) return SK_EN_FR;
+    if (strcmp(name, "UA") == 0) return SK_EN_UA;
+    return false;
+}
+
+bool kb_layout_is_available(int i)
+{
+    if (i < 0 || i >= s_count) return false;
+    return lang_available_name(s_all[i]->name);
 }
 
 static void resolve_kconfig_default_once(void)
@@ -39,8 +65,12 @@ static void resolve_kconfig_default_once(void)
     static bool s_done;
     if (s_done) return;
     s_done = true;
-    const kb_layout_t *l = kb_layout_by_name(kconfig_default_name());
-    if (l) s_active = l;
+    /* Boot with the first available (Kconfig-activated) layout. */
+    for (int i = 0; i < s_count; ++i) {
+        if (kb_layout_is_available(i)) { s_active = s_all[i]; return; }
+    }
+    /* No layout activated in Kconfig: fall back to the first. */
+    s_active = s_all[0];
 }
 
 const kb_layout_t *kb_layout_active(void)
@@ -96,27 +126,7 @@ static uint32_t all_mask(void)
 }
 
 /* Kconfig bool symbols are #defined to 1 when set and undefined
- * otherwise; normalise them to 0/1 compile-time constants. */
-#ifdef CONFIG_SK_LANG_ENABLE_US
-#define SK_EN_US 1
-#else
-#define SK_EN_US 0
-#endif
-#ifdef CONFIG_SK_LANG_ENABLE_DE
-#define SK_EN_DE 1
-#else
-#define SK_EN_DE 0
-#endif
-#ifdef CONFIG_SK_LANG_ENABLE_FR
-#define SK_EN_FR 1
-#else
-#define SK_EN_FR 0
-#endif
-#ifdef CONFIG_SK_LANG_ENABLE_UA
-#define SK_EN_UA 1
-#else
-#define SK_EN_UA 0
-#endif
+ * otherwise; normalised to 0/1 constants above (SK_EN_*). */
 
 static void resolve_enabled_default_once(void)
 {

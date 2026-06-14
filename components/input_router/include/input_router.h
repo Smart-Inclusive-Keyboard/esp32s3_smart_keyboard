@@ -16,15 +16,16 @@
  *   GP_BTN_2  -> Space
  *   GP_BTN_3  -> Enter
  *   GP_BTN_4  -> Backspace
- *   GP_BTN_5  -> Ctrl  (sticky modifier toggle)
- *   GP_BTN_6  -> AltGr (sticky modifier toggle, right Alt)
+ *   GP_BTN_5  -> Ctrl + selected key  / left mouse click
+ *   GP_BTN_6  -> AltGr + selected key / left mouse click
  *   GP_BTN_7  -> unused
  *   GP_BTN_8  -> unused
  *   GP_BTN_9  -> on down: keyboard mode; on up: mouse mode
  *
- * Sticky modifiers (Shift / Ctrl / Alt / AltGr, toggled either by
- * the on-screen modifier keys or GP_BTN_5 / GP_BTN_6) stay engaged
- * until the next character key is pressed.
+ * GP_BTN_5 / GP_BTN_6 behave like GP_BTN_0 but momentarily hold
+ * Ctrl / AltGr for that single keypress. Sticky modifiers (Shift /
+ * Ctrl / Alt / AltGr) toggled via the on-screen modifier keys stay
+ * engaged until the next character key is pressed.
  */
 
 #include "freertos/FreeRTOS.h"

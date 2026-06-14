@@ -79,8 +79,8 @@ is:
 - `GP_BTN_2` -> Space
 - `GP_BTN_3` -> Enter
 - `GP_BTN_4` -> Backspace
-- `GP_BTN_5` -> sticky Ctrl toggle
-- `GP_BTN_6` -> sticky AltGr toggle (right Alt)
+- `GP_BTN_5` -> Ctrl + selected key (like GP_BTN_0 with Ctrl held)
+- `GP_BTN_6` -> AltGr + selected key (like GP_BTN_0 with right Alt held)
 - `GP_BTN_7` -> unused
 - `GP_BTN_8` -> unused
 - `GP_BTN_9` -> on down: keyboard mode; on up: mouse mode
