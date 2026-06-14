@@ -40,6 +40,7 @@
 #include "kb_layout.h"
 #include "hid.h"
 #include "narrator.h"
+#include "audio.h"
 
 static const char *TAG = "kb_ui";
 
@@ -81,6 +82,9 @@ static void nvs_save_strings(void)
      * always boots with the first available layout. */
     nvs_set_str(h, "theme",  theme_active()->name);
     nvs_set_u8(h, "mousespd", (uint8_t)s_st.mouse_speed);
+#if CONFIG_BOARD_HAS_SPEAKER
+    nvs_set_u8(h, "soundvol", (uint8_t)audio_get_volume());
+#endif
     nvs_commit(h);
     nvs_close(h);
 }
@@ -95,10 +99,15 @@ static void nvs_load_strings(void)
         theme_set_active_by_name(buf);
     }
     uint8_t spd;
-    if (nvs_get_u8(h, "mousespd", &spd) == ESP_OK
-            && spd < KB_MOUSE_SPEED_LEVELS) {
+    if (nvs_get_u8(h, "mousespd", &spd) == ESP_OK && spd < KB_MOUSE_SPEED_LEVELS) {
         s_st.mouse_speed = spd;
     }
+#if CONFIG_BOARD_HAS_SPEAKER
+    uint8_t vol;
+    if (nvs_get_u8(h, "soundvol", &vol) == ESP_OK  && vol <= 100) {
+        audio_set_volume(vol);
+    }
+#endif
     nvs_close(h);
 }
 
@@ -461,6 +470,7 @@ static void draw_mouse_overlay(const theme_t *th)
  * action button activates it. Items:
  *   0            Theme           (left/right cycles the palette)
  *   1            Mouse speed     (left/right changes the speed)
+ *   2            Sound volume    (left/right changes the volume)
  *   2..n_lang+1  Lang <NAME>     (left/right/action toggles enable)
  *   n_lang+2     Close
  */
@@ -468,7 +478,8 @@ static void draw_mouse_overlay(const theme_t *th)
 /* Fixed (non-language) rows that precede the language list. */
 #define MENU_ROW_THEME       0
 #define MENU_ROW_MOUSE_SPEED 1
-#define MENU_FIXED_ROWS      2
+#define MENU_ROW_SOUND_VOL   2
+#define MENU_FIXED_ROWS      3
 
 static int menu_lang_count(void)
 {
@@ -510,6 +521,12 @@ static void menu_item_text(int idx, char *out, size_t n)
     } else if (idx == MENU_ROW_MOUSE_SPEED) {
         snprintf(out, n, "Mouse speed: %d/%d",
                  s_st.mouse_speed + 1, KB_MOUSE_SPEED_LEVELS);
+    } else if (idx == MENU_ROW_SOUND_VOL) {
+        int vol = 0;
+#if CONFIG_BOARD_HAS_SPEAKER
+        vol = audio_get_volume();
+#endif
+        snprintf(out, n, "Sound volume: %d%%", vol);
     } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
         int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
         const kb_layout_t *l = kb_layout_by_index(li);
@@ -847,6 +864,23 @@ static void mouse_speed_adjust(int delta)
     keyboard_ui_request_redraw();
 }
 
+static void sound_volume_adjust(int delta)
+{
+#if CONFIG_BOARD_HAS_SPEAKER
+    int vol = audio_get_volume();
+    if( delta > 0 ) {
+        if( vol <= 100 ) vol += 10;
+    }
+    else {
+        if( vol >= 10 ) vol -= 10;
+    }
+    audio_set_volume(vol);
+    nvs_save_strings();
+    keyboard_ui_request_redraw();
+    audio_play_startup_tune();
+#endif
+}
+
 int keyboard_ui_selected_shift(void)
 {
     return (s_st.mod_sticky | s_st.mod_oneshot)
@@ -897,6 +931,8 @@ void keyboard_ui_menu_adjust(int delta)
         keyboard_ui_cycle_theme();   /* persists + redraws */
     } else if (idx == MENU_ROW_MOUSE_SPEED) {
         mouse_speed_adjust(delta ? delta : 1);  /* persists + redraws */
+    } else if (idx == MENU_ROW_SOUND_VOL) {
+        sound_volume_adjust(delta);
     } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
         int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
         if (li < 0) return;

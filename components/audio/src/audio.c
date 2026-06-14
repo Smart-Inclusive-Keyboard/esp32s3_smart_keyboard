@@ -17,7 +17,7 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_BOARD_HAS_PSRAM && CONFIG_BOARD_HAS_SPEAKER
+#if CONFIG_BOARD_HAS_SPEAKER
 
 #include "audio.h"
 
@@ -46,7 +46,7 @@ static i2s_chan_handle_t s_tx;
 static SemaphoreHandle_t s_mutex;
 static SemaphoreHandle_t s_kick;
 static volatile bool      s_playing;
-static int                s_volume_pct = CONFIG_AUDIO_VOLUME;
+static int                s_volume_pct = 70;
 static uint32_t           s_active_sr;        /* current configured rate */
 static i2c_master_bus_handle_t s_codec_bus;   /* shared with touchscreen */
 static const audio_codec_ctrl_if_t *s_codec_ctrl;
@@ -343,6 +343,7 @@ int audio_init(void)
 
 int audio_play_wav(const void *data, size_t len)
 {
+    if (s_volume_pct == 0) return 0;
     if (!s_tx) return -1;
     if (!data || len == 0) return -1;
     xSemaphoreTake(s_mutex, portMAX_DELAY);
@@ -356,6 +357,7 @@ int audio_play_wav(const void *data, size_t len)
 
 void audio_stop(void)
 {
+    if (s_volume_pct == 0) return;
     if (!s_tx) return;
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     s_active.data = NULL;
@@ -372,6 +374,11 @@ void audio_set_volume(int percent)
     if (s_codec) {
         s_codec->set_vol(s_codec, volume_pct_to_db(percent));
     }
+}
+
+int audio_get_volume(void)
+{
+    return s_volume_pct;
 }
 
 bool audio_is_playing(void) { return s_playing; }
@@ -467,4 +474,4 @@ void audio_play_startup_tune(void)
     audio_play_wav(blob, blob_bytes);
 }
 
-#endif /* PSRAM && SPEAKER */
+#endif /* SPEAKER */

@@ -15,7 +15,7 @@
 
 #include "sdkconfig.h"
 
-#if CONFIG_BOARD_HAS_PSRAM && CONFIG_BOARD_HAS_SPEAKER && CONFIG_NARRATOR_ENABLE
+#if CONFIG_BOARD_HAS_SPEAKER && CONFIG_NARRATOR_ENABLE
 
 #include "narrator.h"
 
@@ -276,8 +276,7 @@ static const clip_t *find_clip(uint8_t usage)
 void narrator_init(void)
 {
     audio_init();
-    audio_set_volume(CONFIG_AUDIO_VOLUME);
-    ESP_LOGI(TAG, "ready (volume %d%%)", CONFIG_AUDIO_VOLUME);
+    ESP_LOGI(TAG, "ready (volume %d%%)", audio_get_volume());
 }
 
 void narrator_speak_hid(unsigned hid_usage)
@@ -360,4 +359,4 @@ void narrator_speak_selection(void)
     }
 }
 
-#endif /* PSRAM && SPEAKER && NARRATOR_ENABLE */
+#endif /* SPEAKER && NARRATOR_ENABLE */

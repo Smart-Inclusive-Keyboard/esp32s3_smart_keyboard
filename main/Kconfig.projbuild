@@ -14,7 +14,7 @@ choice SK_BOARD
     help
         Selects the hardware board the firmware is built for.
         The board choice determines pin assignments, display
-        controller, presence of PSRAM / speaker / battery, and
+        controller, presence of speaker, and
         which capability flags are exposed to the rest of the
         firmware.
 
@@ -340,11 +340,11 @@ endchoice
 
 #
 # Audio / narrator. The whole menu is hidden unless the board has
-# PSRAM and a speaker, because narration requires both.
+# a speaker, because narration requires both.
 #
 
 menu "Audio / Narrator"
-    depends on BOARD_HAS_PSRAM && BOARD_HAS_SPEAKER
+    depends on BOARD_HAS_SPEAKER
 
 config NARRATOR_ENABLE
     bool "Speak letter names as the user navigates"
@@ -369,11 +369,6 @@ config AUDIO_I2S_LRCK_GPIO
 config AUDIO_I2S_DOUT_GPIO
     int "I2S DOUT (serial data) GPIO"
     default 7
-
-config AUDIO_VOLUME
-    int "Default narrator volume (%)"
-    default 70
-    range 0 100
 
 endmenu  # Audio / Narrator
 

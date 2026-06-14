@@ -47,6 +47,10 @@ void audio_stop(void);
 /* Set the digital volume in percent [0..100]. */
 void audio_set_volume(int percent);
 
+/* Get the digital volume in percent [0..100]. */
+int audio_get_volume(void);
+
+
 /* True if a clip is currently playing. */
 bool audio_is_playing(void);
 

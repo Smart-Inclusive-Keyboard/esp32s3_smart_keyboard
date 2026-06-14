@@ -5,7 +5,7 @@
  *
  * Speaks the name of the currently selected key as the user
  * navigates the on-screen keyboard. Compiled in only when the
- * board has PSRAM + speaker and CONFIG_NARRATOR_ENABLE is set;
+ * board has speaker and CONFIG_NARRATOR_ENABLE is set;
  * the stub keeps callers ifdef-free.
  *
  * The vocabulary mirrors the upstream Rust project's audio/
