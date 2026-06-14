@@ -23,9 +23,10 @@ extern "C" {
 #endif
 
 /* Display label is an ASCII string (1-3 chars) for portability
- * with the embedded 8x8 font. Non-ASCII layouts (UA, FR
- * dead-keys, etc.) use ASCII transliterations until a full
- * UTF-8 capable font lands. */
+ * with the embedded 8x8 font. Non-Latin layouts (e.g. UA) keep an
+ * ASCII transliteration here as a fallback but set the `glyph`
+ * field below to the real Unicode codepoint, which the renderer
+ * draws from the 10x20 font's embedded non-ASCII glyphs. */
 typedef struct {
     const char *label_unshifted;   /* what we draw idle    */
     const char *label_shifted;     /* what we draw w/Shift */
@@ -34,6 +35,24 @@ typedef struct {
      * Space, Tab, Escape) and should be rendered with an
      * accent color. */
     uint8_t     special;
+    /* Optional narrator clip tokens. When non-NULL, the narrator
+     * plays the named clip (see components/narrator/wav/<token>.wav)
+     * instead of deriving the clip from the HID usage. Used by
+     * layouts whose on-screen labels are ASCII transliterations of
+     * non-Latin glyphs (e.g. the Ukrainian layout), so the spoken
+     * name matches the character the host actually receives. NULL
+     * falls back to the HID-usage / label based lookup. */
+    const char *sound_unshifted;
+    const char *sound_shifted;
+    /* Optional Unicode codepoint to render on-screen instead of the
+     * ASCII label. 0 means "use label_unshifted / label_shifted".
+     * Non-Latin layouts (e.g. Ukrainian) set this to the actual
+     * alphabet letter so the on-screen key shows the real glyph
+     * while label_unshifted stays an ASCII transliteration used as
+     * a fallback when the cell is too small for the 10x20 glyph.
+     * When a Shift modifier is active the renderer draws the
+     * upper-case form of this codepoint. */
+    uint16_t    glyph;
 } kb_key_t;
 
 typedef struct {
@@ -136,6 +155,11 @@ typedef struct {
 #define KB_KEY_SPECIAL_FN        7
 #define KB_KEY_SPECIAL_NAV       8
 #define KB_KEY_SPECIAL_ARROW     9
+/* UI action keys handled locally by keyboard_ui (no HID usage):
+ * LANG cycles the active layout among the enabled languages;
+ * MENU opens the gamepad-navigated settings menu. */
+#define KB_KEY_SPECIAL_LANG      10
+#define KB_KEY_SPECIAL_MENU      11
 
 /* External tables defined in src/layout_<lang>.c. */
 extern const kb_layout_t kb_layout_us;
@@ -143,8 +167,9 @@ extern const kb_layout_t kb_layout_de;
 extern const kb_layout_t kb_layout_fr;
 extern const kb_layout_t kb_layout_ua;
 
-/* Active layout (defaults via Kconfig, runtime override via
- * kb_layout_set_active_by_name() persisted in NVS by the UI). */
+/* Active layout. Defaults to the first available (Kconfig-activated)
+ * layout at boot; runtime override via kb_layout_set_active_by_name().
+ * The active layout is not persisted across reboots. */
 const kb_layout_t *kb_layout_active(void);
 bool               kb_layout_set_active_by_name(const char *name);
 
@@ -152,6 +177,27 @@ bool               kb_layout_set_active_by_name(const char *name);
 int                kb_layout_count(void);
 const kb_layout_t *kb_layout_by_index(int i);
 const kb_layout_t *kb_layout_by_name(const char *name);
+int                kb_layout_index_of(const kb_layout_t *l);
+
+/* Compile-time availability: true when layout index i is activated
+ * via its SK_LANG_ENABLE_* Kconfig switch. Only available layouts
+ * are offered in the settings menu. */
+bool               kb_layout_is_available(int i);
+
+/* Enabled-language set. The on-screen settings menu lets the user
+ * choose which of the built-in layouts participate in the Lng
+ * (language cycle) rotation; the choice is a bitmask (bit i set =
+ * layout index i enabled) persisted to NVS by keyboard_ui. At
+ * least one language is always enabled, and the active layout is
+ * always part of the enabled set. */
+uint32_t           kb_layout_enabled_mask(void);
+void               kb_layout_set_enabled_mask(uint32_t mask);
+bool               kb_layout_is_enabled(int i);
+void               kb_layout_set_enabled(int i, bool on);
+
+/* Return the next enabled layout after `cur` in the rotation
+ * (wraps around). Returns `cur` if it is the only enabled one. */
+const kb_layout_t *kb_layout_next_enabled(const kb_layout_t *cur);
 
 /* Convenience: bounds-checked grid lookup. Returns NULL on
  * out-of-range. */

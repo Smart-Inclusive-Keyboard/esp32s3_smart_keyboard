@@ -83,29 +83,116 @@ the ~60 KB it occupies in flash + ~30 KB in RAM.
 
 ## Keyboard layout
 
-`SK_LAYOUT_DEFAULT` is the compile-time default. The runtime
-choice is persisted to NVS by `keyboard_ui_cycle_layout()` (bound
-to the **Select** button by default) so power-cycling preserves
-the last selection.
+`SK_LAYOUT_DEFAULT` is the compile-time default. The active layout
+is **not** persisted to NVS: the device always boots with the first
+*available* (Kconfig-activated) language. The active layout is
+bound to the on-screen **Lng** key (right of F12), which rotates
+through the *enabled* languages only (see the settings menu below).
+US and Ukrainian (UA) are full layouts; German (DE) and French (FR)
+are still 1x1 placeholders. The Ukrainian layout renders the real
+Cyrillic letters on the keys (upper-cased while Shift is held),
+using the Cyrillic glyphs embedded in the 10x20 UI font.
+
+### Enabled languages
+
+The **Enabled languages** Kconfig switches decide which layouts are
+*available* on the device. Only available layouts are offered in the
+settings menu and take part in the Lng rotation:
+
+| Option                  | Default | Layout              |
+| ----------------------- | ------- | ------------------- |
+| `SK_LANG_ENABLE_US`     | y       | US English          |
+| `SK_LANG_ENABLE_DE`     | n       | German (DE) stub    |
+| `SK_LANG_ENABLE_FR`     | n       | French (FR) stub    |
+| `SK_LANG_ENABLE_UA`     | y       | Ukrainian (UA)      |
+
+Layouts not activated here never appear in the settings menu. The
+enabled set among the available layouts can be changed at runtime
+from the settings menu, but is not persisted across reboots.
+`SK_LANG_ENABLE_UA` also controls whether the Ukrainian narrator
+clips (`wav/ua_*.wav`) are embedded into the firmware image.
+
+### Host layout-switch hotkey
+
+When the device's active layout changes, the firmware emits
+`Ctrl+Shift+<digit>` so a host configured with matching
+input-language hotkeys switches along with it. Each language's
+digit is configurable under **Host layout-switch hotkey**; `0`
+disables the report for that language:
+
+| Option                        | Default | Sends           |
+| ----------------------------- | ------- | --------------- |
+| `SK_LAYOUT_SWITCH_DIGIT_US`   | 1       | Ctrl+Shift+1    |
+| `SK_LAYOUT_SWITCH_DIGIT_DE`   | 2       | Ctrl+Shift+2    |
+| `SK_LAYOUT_SWITCH_DIGIT_FR`   | 3       | Ctrl+Shift+3    |
+| `SK_LAYOUT_SWITCH_DIGIT_UA`   | 4       | Ctrl+Shift+4    |
 
 ## Theme
 
-Same model as the layout: a Kconfig default that can be cycled
-at runtime via **Start** (bound to `keyboard_ui_cycle_theme()`).
+Same model as the layout: a Kconfig default that can be changed
+at runtime from the settings menu (`keyboard_ui_cycle_theme()`).
 Five built-ins ship: `green_on_black` (default),
 `darkgreen_on_black`, `white_on_black`, `black_on_white`,
 `default`.
+
+## Settings menu
+
+The on-screen **Mnu** key (right of F12) opens a modal,
+gamepad-navigated settings menu. While it is open the keyboard is
+replaced by the menu and the gamepad routes here: Up/Down move the
+selection, Left/Right change the highlighted value, and the action
+button (`GP_BTN_0`) activates it. The menu lets the user pick the
+colour theme, set the **mouse pointer speed** (7 levels, slow to
+fast) and toggle which of the *available* (Kconfig-activated)
+languages take part in the Lng rotation. Languages not activated in
+Kconfig are not listed. At least one language is always enabled and
+the active language can never be disabled. Theme and mouse-speed
+choices persist to NVS; the language selection does not.
+
+## Gamepad buttons
+
+The external gamepad's numbered buttons map to fixed actions
+(`components/input_router`):
+
+| Button     | Keyboard mode            | Mouse mode        |
+| ---------- | ------------------------ | ----------------- |
+| `GP_BTN_0` | press selected key       | left click        |
+| `GP_BTN_1` | Shift + selected key     | right click       |
+| `GP_BTN_2` | Space                    | Space             |
+| `GP_BTN_3` | Enter                    | Enter             |
+| `GP_BTN_4` | Backspace                | Backspace         |
+| `GP_BTN_5` | Ctrl + selected key      | left click        |
+| `GP_BTN_6` | AltGr + selected key     | left click        |
+| `GP_BTN_7` | unused                   | unused            |
+| `GP_BTN_8` | unused                   | unused            |
+| `GP_BTN_9` | down: mouse mode; up: keyboard mode          |
+
+The D-pad / analog stick moves the selection cursor (keyboard
+mode) or the menu selection (settings menu). In **mouse mode** the
+analog axes drive the pointer **proportionally**: the further the
+stick is pushed past the dead-zone, the faster the pointer moves,
+scaled by the Mouse-speed level chosen in the settings menu.
+`GP_BTN_5` / `GP_BTN_6` act like `GP_BTN_0` but momentarily
+hold Ctrl / AltGr for that single keypress. Shift / Ctrl / Alt /
+AltGr toggled via the on-screen modifier keys are **sticky**: they
+hold the modifier until the next character key is pressed.
 
 ## Audio / narrator (conditional)
 
 | Option                | Default | Purpose                         |
 | --------------------- | ------- | ------------------------------- |
-| `NARRATOR_ENABLE`     | y       | speak each selected key         |
+| `NARRATOR_ENABLE`     | y       | speak each key as it is sent    |
 | `AUDIO_I2S_PORT`      | 0       | I2S port (0 or 1)               |
 | `AUDIO_I2S_BCLK_GPIO` | 5       |                                 |
 | `AUDIO_I2S_LRCK_GPIO` | 6       |                                 |
 | `AUDIO_I2S_DOUT_GPIO` | 7       |                                 |
 | `AUDIO_VOLUME`        | 70      | 0..100, applied digitally       |
+
+The narrator pronounces the letter or symbol that a gamepad
+action sends, taking the current Shift state into account. The
+Ukrainian layout ships its own clip set so the spoken name matches
+the Cyrillic character the host receives, not the ASCII
+transliteration drawn on screen.
 
 Sound output is **always** I2S -- there is no PWM / internal-DAC
 fallback. On boards without `BOARD_HAS_SPEAKER` selected the
@@ -116,10 +203,13 @@ audio + narrator components compile to no-op stubs so calls from
 
 Runtime preferences live under the `sk_ui` NVS namespace:
 
-| Key      | Type | Set by                          |
-| -------- | ---- | ------------------------------- |
-| `layout` | str  | `keyboard_ui_cycle_layout()`    |
-| `theme`  | str  | `keyboard_ui_cycle_theme()`     |
+| Key        | Type | Set by                          |
+| ---------- | ---- | ------------------------------- |
+| `theme`    | str  | `keyboard_ui_cycle_theme()`     |
+
+The active language and the enabled-language set are intentionally
+not persisted: the device always boots with the first available
+(Kconfig-activated) layout.
 
 To reset to the Kconfig defaults, erase the namespace from a
 serial console or wipe NVS with `idf.py erase-flash`.

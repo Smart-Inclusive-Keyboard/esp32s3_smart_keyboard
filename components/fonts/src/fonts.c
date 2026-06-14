@@ -8,6 +8,7 @@
 
 #include "font8x8_basic.h"
 #include "font10x20_basic.h"
+#include "font10x20_cyrillic.h"
 
 static const uint8_t s_fallback[8] = {
     /* '?' if out of range */
@@ -39,4 +40,17 @@ const uint8_t *font_glyph_10x20(char c)
         return s_fallback_10x20;
     }
     return font10x20_basic[uc - 0x20];
+}
+
+const uint8_t *font_glyph_10x20_cp(uint32_t cp)
+{
+    if (cp >= 0x20 && cp <= 0x7E) {
+        return font10x20_basic[cp - 0x20];
+    }
+    for (int i = 0; i < FONT10X20_CYRILLIC_COUNT; ++i) {
+        if (font10x20_cyrillic_cp[i] == cp) {
+            return font10x20_cyrillic[i];
+        }
+    }
+    return s_fallback_10x20;
 }

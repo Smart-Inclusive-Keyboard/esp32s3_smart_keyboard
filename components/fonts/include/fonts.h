@@ -40,6 +40,25 @@ const uint8_t *font_glyph_8x8(char c);
  * returned pointer is valid for the lifetime of the process. */
 const uint8_t *font_glyph_10x20(char c);
 
+/* Like font_glyph_10x20() but keyed by Unicode codepoint, so it
+ * can also return the embedded Cyrillic glyphs (Ukrainian alphabet,
+ * upper + lower case). ASCII codepoints (0x20..0x7E) fall through
+ * to the base table; unknown codepoints return the '?' glyph. */
+const uint8_t *font_glyph_10x20_cp(uint32_t cp);
+
+/* True if bit (col, row) of the given 40-byte 10x20 glyph is set.
+ * col in [0, 9], row in [0, 19]. Use with font_glyph_10x20_cp()
+ * to avoid re-resolving the glyph per pixel. */
+static inline bool font_pixel_in_10x20(const uint8_t *g, int col, int row)
+{
+    if (!g || col < 0 || col >= FONT10X20_W ||
+        row < 0 || row >= FONT10X20_H) {
+        return false;
+    }
+    uint16_t row_bits = ((uint16_t)g[row * 2] << 8) | g[row * 2 + 1];
+    return (row_bits >> (15 - col)) & 1;
+}
+
 /* True if bit (col, row) of the 10x20 glyph for c is set.
  * col in [0, 9], row in [0, 19]. */
 static inline bool font_pixel_10x20(char c, int col, int row)

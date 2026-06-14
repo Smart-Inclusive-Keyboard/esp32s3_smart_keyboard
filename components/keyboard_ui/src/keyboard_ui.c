@@ -54,11 +54,22 @@ typedef struct {
     bool     hid_connected;
     uint32_t passkey;       /* 0 = none, else 6-digit value     */
     keyboard_ui_mode_t mode;
+    int      menu_sel;      /* selected row in the settings menu */
+    int      mouse_speed;   /* 0..KB_MOUSE_SPEED_LEVELS-1        */
     char     hid_status[32];
 } ui_state_t;
 
 static ui_state_t s_st;
 static QueueHandle_t s_redraw_q;
+
+/* Mouse-pointer speed levels: maximum per-poll pixel delta at
+ * full axis deflection, from slow to fast. The user picks one of
+ * these in the settings menu; input_router scales the live analog
+ * axis value by the selected entry. */
+#define MOUSE_SPEED_DEFAULT 3   /* index into s_mouse_speed_step  */
+static const int s_mouse_speed_step[KB_MOUSE_SPEED_LEVELS] = {
+    3, 6, 10, 16, 24, 34, 48,
+};
 
 /* ----- NVS persistence ----- */
 
@@ -66,8 +77,10 @@ static void nvs_save_strings(void)
 {
     nvs_handle_t h;
     if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) != ESP_OK) return;
-    nvs_set_str(h, "layout", kb_layout_active()->name);
+    /* The active language is intentionally not persisted; the device
+     * always boots with the first available layout. */
     nvs_set_str(h, "theme",  theme_active()->name);
+    nvs_set_u8(h, "mousespd", (uint8_t)s_st.mouse_speed);
     nvs_commit(h);
     nvs_close(h);
 }
@@ -78,12 +91,13 @@ static void nvs_load_strings(void)
     if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) != ESP_OK) return;
     char buf[16];
     size_t len = sizeof(buf);
-    if (nvs_get_str(h, "layout", buf, &len) == ESP_OK) {
-        kb_layout_set_active_by_name(buf);
-    }
-    len = sizeof(buf);
     if (nvs_get_str(h, "theme", buf, &len) == ESP_OK) {
         theme_set_active_by_name(buf);
+    }
+    uint8_t spd;
+    if (nvs_get_u8(h, "mousespd", &spd) == ESP_OK
+            && spd < KB_MOUSE_SPEED_LEVELS) {
+        s_st.mouse_speed = spd;
     }
     nvs_close(h);
 }
@@ -106,6 +120,7 @@ static void draw_status_bar(const theme_t *th)
         { "Sh", HID_MOD_LSHIFT },
         { "Ct", HID_MOD_LCTRL  },
         { "Al", HID_MOD_LALT   },
+        { "AG", HID_MOD_RALT   },
     };
     for (size_t i = 0; i < sizeof(mods) / sizeof(mods[0]); ++i) {
         bool on = (s_st.mod_sticky | s_st.mod_oneshot) & mods[i].m;
@@ -311,6 +326,20 @@ static bool grid_metrics(const kb_layout_t *l,
     return true;
 }
 
+/* Upper-case a Cyrillic codepoint for Shift rendering. Covers the
+ * Ukrainian alphabet: the main a..ya block plus Ye / I / Yi which
+ * sit outside the regular 0x20 case offset. */
+static uint32_t cyr_upper(uint32_t cp)
+{
+    if (cp >= 0x0430 && cp <= 0x044F) return cp - 0x20;
+    switch (cp) {
+    case 0x0454: return 0x0404;  /* ye */
+    case 0x0456: return 0x0406;  /* i  */
+    case 0x0457: return 0x0407;  /* yi */
+    default:     return cp;
+    }
+}
+
 static void draw_keyboard(const theme_t *th)
 {
     const kb_layout_t *l = kb_layout_active();
@@ -350,8 +379,24 @@ static void draw_keyboard(const theme_t *th)
                 continue;
             }
 
-            const char *lbl = ((s_st.mod_sticky | s_st.mod_oneshot)
-                               & HID_MOD_LSHIFT)
+            bool shift_on = ((s_st.mod_sticky | s_st.mod_oneshot)
+                             & HID_MOD_LSHIFT) != 0;
+
+            /* Non-ASCII single-glyph keys (e.g. the Ukrainian
+             * alphabet) carry a Unicode codepoint. Render the glyph
+             * directly via the 10x20 font, upper-cased while Shift is
+             * held. Falls through to the ASCII transliteration label
+             * when the cell is too small for the 10x20 glyph. */
+            if (k->glyph &&
+                cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+                uint32_t cp = shift_on ? cyr_upper(k->glyph) : k->glyph;
+                int tx = x + (cell - FONT10X20_W) / 2;
+                int ty = y + (cell - FONT10X20_H) / 2;
+                display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                continue;
+            }
+
+            const char *lbl = (shift_on && k->label_shifted[0])
                               ? k->label_shifted : k->label_unshifted;
             if (!lbl || !*lbl) continue;
 
@@ -409,12 +454,111 @@ static void draw_mouse_overlay(const theme_t *th)
                         msg, scale, th->key_label, th->win_bg, true);
 }
 
+/* ----- Settings menu ----- */
+/*
+ * A small modal list navigated by the gamepad: up/down move the
+ * cursor, left/right change the highlighted item's value, and the
+ * action button activates it. Items:
+ *   0            Theme           (left/right cycles the palette)
+ *   1            Mouse speed     (left/right changes the speed)
+ *   2..n_lang+1  Lang <NAME>     (left/right/action toggles enable)
+ *   n_lang+2     Close
+ */
+
+/* Fixed (non-language) rows that precede the language list. */
+#define MENU_ROW_THEME       0
+#define MENU_ROW_MOUSE_SPEED 1
+#define MENU_FIXED_ROWS      2
+
+static int menu_lang_count(void)
+{
+    int n = 0;
+    for (int i = 0; i < kb_layout_count(); ++i) {
+        if (kb_layout_is_available(i)) ++n;
+    }
+    return n;
+}
+/* Rows: fixed rows + language rows + a trailing Close row. */
+static int menu_item_count(void)
+{
+    return MENU_FIXED_ROWS + menu_lang_count() + 1;
+}
+static int menu_close_index(void)
+{
+    return MENU_FIXED_ROWS + menu_lang_count();
+}
+
+/* Map the nth (0-based) language row to its global layout index,
+ * skipping layouts not activated in Kconfig. Returns -1 if out of
+ * range. */
+static int menu_lang_layout_index(int nth)
+{
+    int c = 0;
+    for (int i = 0; i < kb_layout_count(); ++i) {
+        if (!kb_layout_is_available(i)) continue;
+        if (c == nth) return i;
+        ++c;
+    }
+    return -1;
+}
+
+static void menu_item_text(int idx, char *out, size_t n)
+{
+    int nl = menu_lang_count();
+    if (idx == MENU_ROW_THEME) {
+        snprintf(out, n, "Theme: %s", theme_active()->name);
+    } else if (idx == MENU_ROW_MOUSE_SPEED) {
+        snprintf(out, n, "Mouse speed: %d/%d",
+                 s_st.mouse_speed + 1, KB_MOUSE_SPEED_LEVELS);
+    } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
+        int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
+        const kb_layout_t *l = kb_layout_by_index(li);
+        snprintf(out, n, "Lang %s: %s",
+                 l ? l->name : "?",
+                 kb_layout_is_enabled(li) ? "ON" : "off");
+    } else {
+        snprintf(out, n, "Close");
+    }
+}
+
+static void draw_menu(const theme_t *th)
+{
+    int w = display_width();
+    int y0 = STATUS_BAR_H;
+    int h = display_height() - STATUS_BAR_H;
+    display_fill_rect(0, y0, w, h, th->win_bg);
+
+    const char *title = "SETTINGS";
+    display_draw_string((w - (int)strlen(title) * 8 * 2) / 2, y0 + 8,
+                        title, 2, th->key_label, th->win_bg, true);
+
+    int n = menu_item_count();
+    int row_h = 28;
+    int top = y0 + 8 + 24 + 8;
+    /* Vertically centre the list in the remaining space. */
+    int avail = y0 + h - top;
+    if (avail > n * row_h) top += (avail - n * row_h) / 2;
+
+    char line[40];
+    for (int i = 0; i < n; ++i) {
+        bool sel = (i == s_st.menu_sel);
+        int y = top + i * row_h;
+        uint16_t bg = sel ? th->nav_sel_bg : th->win_bg;
+        uint16_t fg = sel ? th->nav_sel_fg : th->key_label;
+        display_fill_rect(w / 8, y - 2, w - w / 4, row_h - 4, bg);
+        menu_item_text(i, line, sizeof(line));
+        display_draw_string(w / 8 + 8, y + 2, line, 2, fg, bg, true);
+    }
+}
+
 static void redraw_all(void)
 {
     const theme_t *th = theme_active();
     display_clear(th->win_bg);
     draw_status_bar(th);
-    if (s_st.mode == KB_MODE_MOUSE) {
+    if (s_st.mode == KB_MODE_MENU) {
+        draw_menu(th);
+    } else if (s_st.mode == KB_MODE_MOUSE) {
         draw_mouse_overlay(th);
     } else {
         draw_keyboard(th);
@@ -447,6 +591,7 @@ void keyboard_ui_init(void)
     s_st.sel_row = 0;
     s_st.sel_col = 0;
     s_st.mode    = KB_MODE_KEYBOARD;
+    s_st.mouse_speed = MOUSE_SPEED_DEFAULT;
     snprintf(s_st.hid_status, sizeof(s_st.hid_status), "HID: idle");
 
     nvs_load_strings();
@@ -509,16 +654,61 @@ void keyboard_ui_oneshot_mod(uint8_t mod)
     keyboard_ui_request_redraw();
 }
 
+/* Map a modifier key cell to its HID modifier bit (0 if the cell
+ * is not a Shift / Ctrl / Alt / AltGr / Win key). Modifier cells
+ * carry HID_USAGE_NONE in the layout and are distinguished by
+ * their idle label, mirroring the narrator's approach. */
+static uint8_t key_mod_bit(const kb_key_t *k)
+{
+    const char *l = k ? k->label_unshifted : NULL;
+    if (!l || !*l) return 0;
+    if (strcmp(l, "Sft") == 0) return HID_MOD_LSHIFT;
+    if (strcmp(l, "Ctl") == 0) return HID_MOD_LCTRL;
+    if (strcmp(l, "Alt") == 0) return HID_MOD_LALT;
+    if (strcmp(l, "AGr") == 0) return HID_MOD_RALT;
+    if (strcmp(l, "Win") == 0) return HID_MOD_LGUI;
+    return 0;
+}
+
 void keyboard_ui_press_current(void)
 {
     const kb_layout_t *l = kb_layout_active();
     const kb_key_t *k = kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
-    if (!k || k->hid_usage == HID_USAGE_NONE) return;
+    if (!k) return;
+
+    /* UI action keys are handled locally, not sent over HID. */
+    if (k->special == KB_KEY_SPECIAL_LANG) {
+        keyboard_ui_cycle_layout();
+        return;
+    }
+    if (k->special == KB_KEY_SPECIAL_MENU) {
+        keyboard_ui_open_menu();
+        return;
+    }
+
+    /* Modifier cells toggle a sticky modifier latch. The latch
+     * persists across navigation and is cleared once a real letter
+     * or symbol is pressed (below), so modifiers behave "sticky
+     * until the next character". */
+    uint8_t mb = key_mod_bit(k);
+    if (mb) {
+        s_st.mod_sticky ^= mb;
+        keyboard_ui_request_redraw();
+        return;
+    }
+
+    if (k->hid_usage == HID_USAGE_NONE) return;
 
     uint8_t mods = s_st.mod_sticky | s_st.mod_oneshot;
+    bool shifted = (mods & (HID_MOD_LSHIFT | HID_MOD_RSHIFT)) != 0;
     hid_send_key(mods, k->hid_usage);
     hid_release_all();
+    /* Speak the letter / symbol we just sent (shift-aware). */
+    narrator_speak_key_ex(k, shifted);
+    /* A character press consumes the one-shot and sticky modifier
+     * latches. */
     s_st.mod_oneshot = 0;
+    s_st.mod_sticky = 0;
     keyboard_ui_request_redraw();
 }
 
@@ -544,11 +734,7 @@ void keyboard_ui_tap(int x, int y)
 
     s_st.sel_row = row;
     s_st.sel_col = col;
-    /* Speak the tapped key the same way navigation does -- the
-     * narrator otherwise wouldn't react to touch input because
-     * the touch path bypasses input_router. */
-    narrator_speak_selection();
-    keyboard_ui_press_current();  /* also requests a redraw */
+    keyboard_ui_press_current();  /* sends + narrates + requests redraw */
 }
 
 void keyboard_ui_set_hid_status(const char *text, bool connected)
@@ -590,16 +776,36 @@ const kb_key_t *keyboard_ui_selected_key(void)
     return kb_layout_key_at(l, s_st.sel_row, s_st.sel_col);
 }
 
+/* Host-side layout switch. When the active layout changes we emit
+ * Ctrl+Shift+<digit> so a host configured with matching language
+ * hotkeys follows the device. The per-language digit comes from
+ * Kconfig (SK_LAYOUT_SWITCH_DIGIT_*); 0 disables the report. */
+static int layout_switch_digit(const kb_layout_t *l)
+{
+    if (!l) return 0;
+    if (strcmp(l->name, "US") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_US;
+    if (strcmp(l->name, "DE") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_DE;
+    if (strcmp(l->name, "FR") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_FR;
+    if (strcmp(l->name, "UA") == 0) return CONFIG_SK_LAYOUT_SWITCH_DIGIT_UA;
+    return 0;
+}
+
+static void send_layout_switch_hid(const kb_layout_t *l)
+{
+    int d = layout_switch_digit(l);
+    if (d < 1 || d > 9) return;  /* 0 (or out of range) = disabled */
+    uint8_t usage = (uint8_t)(HID_USAGE_1 + (d - 1));
+    hid_send_key(HID_MOD_LCTRL | HID_MOD_LSHIFT, usage);
+    hid_release_all();
+}
+
 void keyboard_ui_cycle_layout(void)
 {
     const kb_layout_t *cur = kb_layout_active();
-    int n = kb_layout_count();
-    int idx = 0;
-    for (int i = 0; i < n; ++i) {
-        if (kb_layout_by_index(i) == cur) { idx = i; break; }
-    }
-    const kb_layout_t *nxt = kb_layout_by_index((idx + 1) % n);
+    const kb_layout_t *nxt = kb_layout_next_enabled(cur);
+    if (!nxt) nxt = cur;
     kb_layout_set_active_by_name(nxt->name);
+    if (nxt != cur) send_layout_switch_hid(nxt);
     /* Clamp selection to new grid bounds. */
     if (s_st.sel_row >= nxt->rows) s_st.sel_row = nxt->rows - 1;
     if (s_st.sel_col >= nxt->cols) s_st.sel_col = nxt->cols - 1;
@@ -619,4 +825,101 @@ void keyboard_ui_cycle_theme(void)
     theme_set_active_by_name(nxt->name);
     nvs_save_strings();
     keyboard_ui_request_redraw();
+}
+
+int keyboard_ui_mouse_max_step(void)
+{
+    int i = s_st.mouse_speed;
+    if (i < 0 || i >= KB_MOUSE_SPEED_LEVELS) i = MOUSE_SPEED_DEFAULT;
+    return s_mouse_speed_step[i];
+}
+
+/* Step the mouse-speed level by delta (wrapping), persist it, and
+ * redraw so the menu reflects the new value. */
+static void mouse_speed_adjust(int delta)
+{
+    int n = KB_MOUSE_SPEED_LEVELS;
+    int v = s_st.mouse_speed + delta;
+    while (v < 0)  v += n;
+    while (v >= n) v -= n;
+    s_st.mouse_speed = v;
+    nvs_save_strings();
+    keyboard_ui_request_redraw();
+}
+
+int keyboard_ui_selected_shift(void)
+{
+    return (s_st.mod_sticky | s_st.mod_oneshot)
+           & (HID_MOD_LSHIFT | HID_MOD_RSHIFT);
+}
+
+void keyboard_ui_narrate_selection(void)
+{
+    const kb_key_t *k = keyboard_ui_selected_key();
+    if (!k) return;
+    narrator_speak_key_ex(k, keyboard_ui_selected_shift() != 0);
+}
+
+/* ----- Settings menu ----- */
+
+void keyboard_ui_open_menu(void)
+{
+    s_st.menu_sel = 0;
+    keyboard_ui_set_mode(KB_MODE_MENU);
+}
+
+void keyboard_ui_close_menu(void)
+{
+    keyboard_ui_set_mode(KB_MODE_KEYBOARD);
+}
+
+void keyboard_ui_menu_move(int delta)
+{
+    if (s_st.mode != KB_MODE_MENU) return;
+    int n = menu_item_count();
+    int sel = s_st.menu_sel + delta;
+    if (sel < 0) sel = n - 1;
+    if (sel >= n) sel = 0;
+    s_st.menu_sel = sel;
+    keyboard_ui_request_redraw();
+}
+
+/* Apply a value change to the highlighted item. For Theme this
+ * cycles the palette; for a language row it toggles its enabled
+ * flag; the Close row has no value. */
+void keyboard_ui_menu_adjust(int delta)
+{
+    if (s_st.mode != KB_MODE_MENU) return;
+    int nl = menu_lang_count();
+    int idx = s_st.menu_sel;
+    if (idx == MENU_ROW_THEME) {
+        (void)delta;
+        keyboard_ui_cycle_theme();   /* persists + redraws */
+    } else if (idx == MENU_ROW_MOUSE_SPEED) {
+        mouse_speed_adjust(delta ? delta : 1);  /* persists + redraws */
+    } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
+        int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
+        if (li < 0) return;
+        const kb_layout_t *before = kb_layout_active();
+        kb_layout_set_enabled(li, !kb_layout_is_enabled(li));
+        /* Disabling the active layout can switch the active layout
+         * (kb_layout keeps the active one in the enabled set); make
+         * sure the selection cursor stays within the new grid. */
+        const kb_layout_t *a = kb_layout_active();
+        if (a != before) send_layout_switch_hid(a);
+        if (s_st.sel_row >= a->rows) s_st.sel_row = a->rows - 1;
+        if (s_st.sel_col >= a->cols) s_st.sel_col = a->cols - 1;
+        nvs_save_strings();
+        keyboard_ui_request_redraw();
+    }
+}
+
+void keyboard_ui_menu_select(void)
+{
+    if (s_st.mode != KB_MODE_MENU) return;
+    if (s_st.menu_sel == menu_close_index()) {
+        keyboard_ui_close_menu();
+        return;
+    }
+    keyboard_ui_menu_adjust(1);
 }

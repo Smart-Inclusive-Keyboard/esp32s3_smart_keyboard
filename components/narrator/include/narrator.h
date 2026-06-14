@@ -37,6 +37,21 @@ void narrator_speak_hid(unsigned hid_usage);
  * share HID_USAGE_NONE in the layout). */
 void narrator_speak_key(const kb_key_t *key);
 
+/* Speak the given key cell taking the Shift state into account.
+ * When `shifted` is true the shifted narrator token / glyph is
+ * preferred (e.g. the symbol produced by Shift+digit). Falls back
+ * to narrator_speak_key() behaviour when no shifted variant
+ * exists. Keys carrying explicit sound tokens (sound_unshifted /
+ * sound_shifted, used by non-Latin layouts) are spoken via those
+ * tokens so the spoken name matches the character the host
+ * receives, not the on-screen transliteration. */
+void narrator_speak_key_ex(const kb_key_t *key, bool shifted);
+
+/* Speak a narrator clip by its filename token (the WAV basename
+ * without the .wav suffix, e.g. "ua_u0430" or "space"). No-op if
+ * the token is unknown. */
+void narrator_speak_token(const char *token);
+
 #ifdef __cplusplus
 }
 #endif

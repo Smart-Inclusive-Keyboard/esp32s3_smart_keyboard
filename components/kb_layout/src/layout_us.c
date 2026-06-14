@@ -22,9 +22,9 @@
 
 #include "kb_layout.h"
 
-#define K(lu, ls, u)         { (lu), (ls), (u), KB_KEY_SPECIAL_NONE }
-#define KSP(lu, ls, u, sp)   { (lu), (ls), (u), (sp)               }
-#define KNONE                { "",   "",   HID_USAGE_NONE, KB_KEY_SPECIAL_NONE }
+#define K(lu, ls, u)         { (lu), (ls), (u), KB_KEY_SPECIAL_NONE, NULL, NULL, 0 }
+#define KSP(lu, ls, u, sp)   { (lu), (ls), (u), (sp),                NULL, NULL, 0 }
+#define KNONE                { "",   "",   HID_USAGE_NONE, KB_KEY_SPECIAL_NONE, NULL, NULL, 0 }
 
 #define ROWS 6
 #define COLS 17
@@ -44,7 +44,9 @@ static const kb_key_t s_keys[ROWS * COLS] = {
     KSP("F10","F10",HID_USAGE_F10,KB_KEY_SPECIAL_FN),
     KSP("F11","F11",HID_USAGE_F11,KB_KEY_SPECIAL_FN),
     KSP("F12","F12",HID_USAGE_F12,KB_KEY_SPECIAL_FN),
-    KNONE, KNONE, KNONE, KNONE,
+    KSP("Lng","Lng",HID_USAGE_NONE,KB_KEY_SPECIAL_LANG),
+    KSP("Mnu","Mnu",HID_USAGE_NONE,KB_KEY_SPECIAL_MENU),
+    KNONE, KNONE,
 
     /* Row 1: number row + Bksp (cols 0-13) + nav cluster (14-16). */
     K("`","~",HID_USAGE_GRAVE), K("1","!",HID_USAGE_1), K("2","@",HID_USAGE_2),

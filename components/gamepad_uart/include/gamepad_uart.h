@@ -13,7 +13,7 @@
  * Wire report layout (6 bytes, identical to the USB / UART HID
  * report emitted by the gamepad firmware):
  *
- *   byte 0:   buttons 0..7   (bit i set = HID button i+1 pressed)
+ *   byte 0:   buttons 0..7   (bit i set = GP_BTN_i pressed)
  *   byte 1:   buttons 8..9   (bits 0..1) + 6 bits padding
  *   byte 2:   X axis, signed 16-bit little-endian, low byte
  *   byte 3:   X axis, high byte (-32767..32767, 0 = centred,
@@ -50,11 +50,13 @@ typedef enum {
     GP_BTN_LEFT,
     GP_BTN_RIGHT,
     /* Numbered HID buttons. The numeric suffix matches the
-     * button index used in the wire report (and in standard
-     * HID Button-page usages). We intentionally do not bake
-     * vendor letter names (A/B/X/Y, L/R/SELECT/START) into the
-     * API so the same code works across controllers with
-     * different button silkscreens. */
+     * zero-based bit position in the wire report: bit 0 of the
+     * buttons bitmap triggers GP_BTN_0, bit 1 triggers GP_BTN_1,
+     * and so on up to GP_BTN_9 (10 buttons total). We
+     * intentionally do not bake vendor letter names (A/B/X/Y,
+     * L/R/SELECT/START) into the API so the same code works
+     * across controllers with different button silkscreens. */
+    GP_BTN_0,
     GP_BTN_1,
     GP_BTN_2,
     GP_BTN_3,
@@ -64,7 +66,6 @@ typedef enum {
     GP_BTN_7,
     GP_BTN_8,
     GP_BTN_9,
-    GP_BTN_10,
 
     GP_BTN_COUNT,
 } gamepad_button_t;
@@ -89,6 +90,14 @@ QueueHandle_t gamepad_uart_start(void);
 /* Convenience for diagnostics. The string is statically
  * allocated and valid for the lifetime of the process. */
 const char *gamepad_button_name(gamepad_button_t b);
+
+/* Latest raw analog axis values from the most recent frame,
+ * signed -32767..32767 (0 = centred, +X = right, +Y = down).
+ * Either pointer may be NULL. Used by input_router to drive
+ * proportional (analog) mouse motion in mouse mode, where the
+ * coarse N/S/E/W edge events are not enough. Safe to call from
+ * any task; the values are updated atomically by the RX task. */
+void gamepad_uart_get_axes(int16_t *x, int16_t *y);
 
 #ifdef __cplusplus
 }

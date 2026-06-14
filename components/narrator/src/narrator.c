@@ -88,6 +88,26 @@ WAV_SYMS(insert) WAV_SYMS(home)   WAV_SYMS(pageup)
 WAV_SYMS(delete) WAV_SYMS(end)    WAV_SYMS(pagedown)
 WAV_SYMS(up)     WAV_SYMS(down)   WAV_SYMS(left)    WAV_SYMS(right)
 
+/* Ukrainian narrator clips (keyed by Unicode codepoint / symbol
+ * name) used by the UA layout's per-key sound tokens. Only embedded
+ * when the Ukrainian layout is enabled (CONFIG_SK_LANG_ENABLE_UA),
+ * so reference their symbols under the same gate. */
+#if CONFIG_SK_LANG_ENABLE_UA
+WAV_SYMS(ua_0) WAV_SYMS(ua_1) WAV_SYMS(ua_2) WAV_SYMS(ua_3) WAV_SYMS(ua_4)
+WAV_SYMS(ua_5) WAV_SYMS(ua_6) WAV_SYMS(ua_7) WAV_SYMS(ua_8) WAV_SYMS(ua_9)
+WAV_SYMS(ua_apostrophe) WAV_SYMS(ua_backslash) WAV_SYMS(ua_comma) WAV_SYMS(ua_equals) WAV_SYMS(ua_minus)
+WAV_SYMS(ua_period) WAV_SYMS(ua_semicolon) WAV_SYMS(ua_u0021) WAV_SYMS(ua_u0022) WAV_SYMS(ua_u0025)
+WAV_SYMS(ua_u0028) WAV_SYMS(ua_u0029) WAV_SYMS(ua_u002a) WAV_SYMS(ua_u002b) WAV_SYMS(ua_u003a)
+WAV_SYMS(ua_u003f) WAV_SYMS(ua_u005f) WAV_SYMS(ua_u007c) WAV_SYMS(ua_u0430) WAV_SYMS(ua_u0431)
+WAV_SYMS(ua_u0432) WAV_SYMS(ua_u0433) WAV_SYMS(ua_u0434) WAV_SYMS(ua_u0435) WAV_SYMS(ua_u0436)
+WAV_SYMS(ua_u0437) WAV_SYMS(ua_u0438) WAV_SYMS(ua_u0439) WAV_SYMS(ua_u043a) WAV_SYMS(ua_u043b)
+WAV_SYMS(ua_u043c) WAV_SYMS(ua_u043d) WAV_SYMS(ua_u043e) WAV_SYMS(ua_u043f) WAV_SYMS(ua_u0440)
+WAV_SYMS(ua_u0441) WAV_SYMS(ua_u0442) WAV_SYMS(ua_u0443) WAV_SYMS(ua_u0444) WAV_SYMS(ua_u0445)
+WAV_SYMS(ua_u0446) WAV_SYMS(ua_u0447) WAV_SYMS(ua_u0448) WAV_SYMS(ua_u0449) WAV_SYMS(ua_u044c)
+WAV_SYMS(ua_u044e) WAV_SYMS(ua_u044f) WAV_SYMS(ua_u0454) WAV_SYMS(ua_u0456) WAV_SYMS(ua_u0457)
+WAV_SYMS(ua_u20b4) WAV_SYMS(ua_u2116)
+#endif /* CONFIG_SK_LANG_ENABLE_UA */
+
 typedef struct {
     uint8_t hid_usage;
     const uint8_t *start;
@@ -163,6 +183,86 @@ static const mod_clip_t S_MOD_CLIPS[] = {
     /* No upstream clip for "Win" / "Cmd"; fall back to silence. */
 };
 
+/* Filename-token -> clip table. Lets a layout name an exact
+ * narrator clip per key (sound_unshifted / sound_shifted) so the
+ * spoken name matches the character the host receives rather than
+ * the ASCII transliteration drawn on screen. Currently populated
+ * with the Ukrainian (ua_*) clip set. */
+typedef struct {
+    const char *token;
+    const uint8_t *start;
+    const uint8_t *end;
+} token_clip_t;
+
+#define TOK(name) { #name, _binary_##name##_wav_start, _binary_##name##_wav_end }
+
+#if CONFIG_SK_LANG_ENABLE_UA
+static const token_clip_t S_TOKEN_CLIPS[] = {
+    TOK(ua_0),
+    TOK(ua_1),
+    TOK(ua_2),
+    TOK(ua_3),
+    TOK(ua_4),
+    TOK(ua_5),
+    TOK(ua_6),
+    TOK(ua_7),
+    TOK(ua_8),
+    TOK(ua_9),
+    TOK(ua_apostrophe),
+    TOK(ua_backslash),
+    TOK(ua_comma),
+    TOK(ua_equals),
+    TOK(ua_minus),
+    TOK(ua_period),
+    TOK(ua_semicolon),
+    TOK(ua_u0021),
+    TOK(ua_u0022),
+    TOK(ua_u0025),
+    TOK(ua_u0028),
+    TOK(ua_u0029),
+    TOK(ua_u002a),
+    TOK(ua_u002b),
+    TOK(ua_u003a),
+    TOK(ua_u003f),
+    TOK(ua_u005f),
+    TOK(ua_u007c),
+    TOK(ua_u0430),
+    TOK(ua_u0431),
+    TOK(ua_u0432),
+    TOK(ua_u0433),
+    TOK(ua_u0434),
+    TOK(ua_u0435),
+    TOK(ua_u0436),
+    TOK(ua_u0437),
+    TOK(ua_u0438),
+    TOK(ua_u0439),
+    TOK(ua_u043a),
+    TOK(ua_u043b),
+    TOK(ua_u043c),
+    TOK(ua_u043d),
+    TOK(ua_u043e),
+    TOK(ua_u043f),
+    TOK(ua_u0440),
+    TOK(ua_u0441),
+    TOK(ua_u0442),
+    TOK(ua_u0443),
+    TOK(ua_u0444),
+    TOK(ua_u0445),
+    TOK(ua_u0446),
+    TOK(ua_u0447),
+    TOK(ua_u0448),
+    TOK(ua_u0449),
+    TOK(ua_u044c),
+    TOK(ua_u044e),
+    TOK(ua_u044f),
+    TOK(ua_u0454),
+    TOK(ua_u0456),
+    TOK(ua_u0457),
+    TOK(ua_u20b4),
+    TOK(ua_u2116),
+};
+#endif /* CONFIG_SK_LANG_ENABLE_UA */
+
 static const clip_t *find_clip(uint8_t usage)
 {
     for (size_t i = 0; i < sizeof(S_CLIPS) / sizeof(S_CLIPS[0]); ++i) {
@@ -185,6 +285,35 @@ void narrator_speak_hid(unsigned hid_usage)
     const clip_t *c = find_clip((uint8_t)hid_usage);
     if (!c) return;
     audio_play_wav(c->start, (size_t)(c->end - c->start));
+}
+
+void narrator_speak_token(const char *token)
+{
+    if (!token || !*token) return;
+#if CONFIG_SK_LANG_ENABLE_UA
+    for (size_t i = 0; i < sizeof(S_TOKEN_CLIPS) / sizeof(S_TOKEN_CLIPS[0]); ++i) {
+        if (strcmp(S_TOKEN_CLIPS[i].token, token) == 0) {
+            audio_play_wav(S_TOKEN_CLIPS[i].start,
+                           (size_t)(S_TOKEN_CLIPS[i].end - S_TOKEN_CLIPS[i].start));
+            return;
+        }
+    }
+#endif
+}
+
+void narrator_speak_key_ex(const kb_key_t *k, bool shifted)
+{
+    if (!k) return;
+    /* Prefer an explicit per-key narrator token. Fall back to the
+     * unshifted token when the shifted variant is unset (e.g.
+     * letters that only differ by case). */
+    const char *tok = shifted ? k->sound_shifted : k->sound_unshifted;
+    if (!tok) tok = k->sound_unshifted;
+    if (tok && *tok) {
+        narrator_speak_token(tok);
+        return;
+    }
+    narrator_speak_key(k);
 }
 
 void narrator_speak_key(const kb_key_t *k)
@@ -219,8 +348,11 @@ void narrator_speak_selection(void)
      * HID-only getter for compatibility. */
     extern const kb_key_t *keyboard_ui_selected_key(void) __attribute__((weak));
     extern int keyboard_ui_selected_hid_usage(void) __attribute__((weak));
+    extern int keyboard_ui_selected_shift(void) __attribute__((weak));
     if (keyboard_ui_selected_key) {
-        narrator_speak_key(keyboard_ui_selected_key());
+        bool shifted = keyboard_ui_selected_shift
+                       ? (keyboard_ui_selected_shift() != 0) : false;
+        narrator_speak_key_ex(keyboard_ui_selected_key(), shifted);
         return;
     }
     if (keyboard_ui_selected_hid_usage) {

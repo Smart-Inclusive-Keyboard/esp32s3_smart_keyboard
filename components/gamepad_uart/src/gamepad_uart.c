@@ -27,6 +27,7 @@ static const char *s_names[GP_BTN_COUNT] = {
     [GP_BTN_DOWN]  = "DOWN",
     [GP_BTN_LEFT]  = "LEFT",
     [GP_BTN_RIGHT] = "RIGHT",
+    [GP_BTN_0]     = "0",
     [GP_BTN_1]     = "1",
     [GP_BTN_2]     = "2",
     [GP_BTN_3]     = "3",
@@ -36,7 +37,6 @@ static const char *s_names[GP_BTN_COUNT] = {
     [GP_BTN_7]     = "7",
     [GP_BTN_8]     = "8",
     [GP_BTN_9]     = "9",
-    [GP_BTN_10]    = "10",
 };
 
 const char *gamepad_button_name(gamepad_button_t b)
@@ -61,6 +61,18 @@ static uart_port_t   s_port;
  * detection. Bit positions match the gamepad_button_t enum. */
 static uint32_t s_prev_state;
 
+/* Latest raw analog axis values, refreshed on every decoded
+ * frame. 16-bit stores are atomic on the targets we build for,
+ * so a plain read from another task sees a consistent value. */
+static volatile int16_t s_axis_x;
+static volatile int16_t s_axis_y;
+
+void gamepad_uart_get_axes(int16_t *x, int16_t *y)
+{
+    if (x) *x = s_axis_x;
+    if (y) *y = s_axis_y;
+}
+
 /* Decode a 6-byte report into a flat bitmap whose bit positions
  * match gamepad_button_t. */
 static uint32_t gamepad_parse_report(const uint8_t *r)
@@ -68,6 +80,10 @@ static uint32_t gamepad_parse_report(const uint8_t *r)
     uint16_t buttons = (uint16_t)r[0] | ((uint16_t)(r[1] & 0x03) << 8);
     int16_t  x = (int16_t)((uint16_t)r[2] | ((uint16_t)r[3] << 8));
     int16_t  y = (int16_t)((uint16_t)r[4] | ((uint16_t)r[5] << 8));
+
+    /* Publish the raw axes for proportional mouse motion. */
+    s_axis_x = x;
+    s_axis_y = y;
 
     int dz = CONFIG_SK_GAMEPAD_AXIS_DEADZONE;
     uint32_t s = 0;
@@ -79,7 +95,7 @@ static uint32_t gamepad_parse_report(const uint8_t *r)
 
     for (int i = 0; i < 10; ++i) {
         if (buttons & (1u << i)) {
-            s |= 1u << (GP_BTN_1 + i);
+            s |= 1u << (GP_BTN_0 + i);
         }
     }
 

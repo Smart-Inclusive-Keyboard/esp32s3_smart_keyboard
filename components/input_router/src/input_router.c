@@ -1,5 +1,23 @@
 /*
  * Gamepad-event -> keyboard/HID action router.
+ *
+ * Button map (numbered buttons match the gamepad wire-report bit
+ * positions, see components/gamepad_uart):
+ *
+ *   GP_BTN_0  normal keypress       / left mouse click
+ *   GP_BTN_1  shifted keypress      / right mouse click
+ *   GP_BTN_2  Space
+ *   GP_BTN_3  Enter
+ *   GP_BTN_4  Backspace
+ *   GP_BTN_5  Ctrl + selected key   (like GP_BTN_0 with Ctrl held)
+ *   GP_BTN_6  AltGr + selected key  (like GP_BTN_0 with AltGr held)
+ *   GP_BTN_7  unused
+ *   GP_BTN_8  unused
+ *   GP_BTN_9  on down -> mouse mode, on up -> keyboard mode
+ *
+ * The D-pad / analog directions move the selection cursor (or the
+ * mouse pointer in mouse mode, or the menu selection while the
+ * settings menu is open).
  */
 
 #include "input_router.h"
@@ -16,6 +34,7 @@
 #include "hid.h"
 #include "kb_layout.h"
 #include "narrator.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "input_router";
 
@@ -23,10 +42,15 @@ static const char *TAG = "input_router";
 #define INITIAL_REPEAT_MS 350
 #define REPEAT_INTERVAL_MS 80
 
-#define MOUSE_STEP 8  /* pixels per poll while a D-pad is held */
+/* Full-scale magnitude of a gamepad analog axis (see
+ * gamepad_uart.h: signed -32767..32767). */
+#define AXIS_FULL_SCALE 32767
 
-/* Per-button state, used to drive hold-to-repeat and chord
- * detection. */
+/* HID mouse reports carry a signed 8-bit delta per axis, so a
+ * single poll can move at most this many pixels. */
+#define MOUSE_DELTA_MAX 127
+
+/* Per-button state, used to drive hold-to-repeat. */
 typedef struct {
     bool     down;
     uint32_t down_at_ms;
@@ -34,10 +58,6 @@ typedef struct {
 } btn_state_t;
 
 static btn_state_t s_b[GP_BTN_COUNT];
-
-/* True while both L and R are held (used to detect the
- * "toggle mouse mode" chord on the up-edge of either). */
-static bool s_lr_chord_active;
 
 static inline bool is_dir(gamepad_button_t b)
 {
@@ -55,22 +75,58 @@ static void dir_apply(gamepad_button_t b)
     case GP_BTN_RIGHT: dc =  1; break;
     default: return;
     }
-    if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-        hid_send_mouse(dc * MOUSE_STEP, dr * MOUSE_STEP, 0, 0);
-    } else {
+    switch (keyboard_ui_get_mode()) {
+    case KB_MODE_MENU:
+        /* Up/Down move the cursor; Left/Right change the value. */
+        if (dr) keyboard_ui_menu_move(dr);
+        else    keyboard_ui_menu_adjust(dc);
+        break;
+    case KB_MODE_MOUSE:
+        /* Mouse motion is driven by the analog axes in
+         * mouse_axes_apply(), proportional to deflection; the
+         * coarse N/S/E/W edge events are ignored here. */
+        break;
+    case KB_MODE_KEYBOARD:
+    default:
         if (keyboard_ui_move(dr, dc)) {
-            const kb_layout_t *l = kb_layout_active();
-            /* narrator (no-op when disabled) */
-            (void)l;
-            narrator_speak_selection();
+            /* Speak the newly selected key (no-op when the
+             * narrator is disabled). */
+            keyboard_ui_narrate_selection();
         }
+        break;
     }
 }
 
-static void press_with_mod(uint8_t mod)
+/* Send a fixed key (Space / Enter / Backspace) and speak it. These
+ * are language-neutral and not tied to the selection cursor. */
+static void send_fixed(uint8_t usage)
 {
-    keyboard_ui_oneshot_mod(mod);
-    keyboard_ui_press_current();
+    hid_send_key(0, usage);
+    hid_release_all();
+    narrator_speak_hid(usage);
+}
+
+/* Perform the GP_BTN_0 "action" press, optionally with an extra
+ * one-shot modifier (Ctrl / AltGr) latched for the keypress. */
+static void press_action(uint8_t extra_mod)
+{
+    switch (keyboard_ui_get_mode()) {
+    case KB_MODE_MENU:
+        keyboard_ui_menu_select();
+        break;
+    case KB_MODE_MOUSE:
+        hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
+        hid_send_mouse(0, 0, 0, 0);
+        break;
+    case KB_MODE_KEYBOARD:
+    default:
+        /* Normal keypress: applies + clears sticky modifiers and
+         * narrates inside keyboard_ui_press_current(). The optional
+         * one-shot modifier is consumed by that same press. */
+        if (extra_mod) keyboard_ui_oneshot_mod(extra_mod);
+        keyboard_ui_press_current();
+        break;
+    }
 }
 
 static void handle_down(gamepad_button_t b, uint32_t now)
@@ -84,57 +140,48 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         return;
     }
 
+    keyboard_ui_mode_t mode = keyboard_ui_get_mode();
+
     switch (b) {
+    case GP_BTN_0:
+        press_action(0);
+        break;
     case GP_BTN_1:
-        if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-            hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
-            hid_send_mouse(0, 0, 0, 0);
-        } else {
-            press_with_mod(0);
-        }
-        break;
-    case GP_BTN_3:
-        press_with_mod(HID_MOD_LSHIFT);
-        break;
-    case GP_BTN_2:
-        if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
+        if (mode == KB_MODE_MOUSE) {
             hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
             hid_send_mouse(0, 0, 0, 0);
-        } else {
-            press_with_mod(HID_MOD_LCTRL);
+        } else if (mode == KB_MODE_KEYBOARD) {
+            /* Shifted keypress: latch a one-shot Shift, then press
+             * the selected key (which clears it again). */
+            keyboard_ui_oneshot_mod(HID_MOD_LSHIFT);
+            keyboard_ui_press_current();
         }
+        break;
+    case GP_BTN_2:
+        send_fixed(HID_USAGE_SPACE);
+        break;
+    case GP_BTN_3:
+        send_fixed(HID_USAGE_ENTER);
         break;
     case GP_BTN_4:
-        press_with_mod(HID_MOD_LALT);
+        send_fixed(HID_USAGE_BACKSPACE);
         break;
     case GP_BTN_5:
-        if (s_b[GP_BTN_6].down) {
-            s_lr_chord_active = true;
-            keyboard_ui_set_mode(
-                keyboard_ui_get_mode() == KB_MODE_MOUSE
-                    ? KB_MODE_KEYBOARD : KB_MODE_MOUSE);
-        } else {
-            hid_send_key(0, HID_USAGE_BACKSPACE);
-            hid_release_all();
-        }
+        /* Like GP_BTN_0 but with Ctrl held for the keypress. */
+        press_action(HID_MOD_LCTRL);
         break;
     case GP_BTN_6:
-        if (s_b[GP_BTN_5].down) {
-            s_lr_chord_active = true;
-            keyboard_ui_set_mode(
-                keyboard_ui_get_mode() == KB_MODE_MOUSE
-                    ? KB_MODE_KEYBOARD : KB_MODE_MOUSE);
-        } else {
-            keyboard_ui_toggle_mod(HID_MOD_LSHIFT);
-        }
+        /* Like GP_BTN_0 but with AltGr (right Alt) held. */
+        press_action(HID_MOD_RALT);
         break;
-    case GP_BTN_8:
-        keyboard_ui_cycle_theme();
+    case GP_BTN_9:
+        /* On down: enter mouse mode. */
+        keyboard_ui_set_mode(KB_MODE_MOUSE);
         break;
     case GP_BTN_7:
-        keyboard_ui_cycle_layout();
-        break;
+    case GP_BTN_8:
     default:
+        /* Unused. */
         break;
     }
 }
@@ -142,13 +189,9 @@ static void handle_down(gamepad_button_t b, uint32_t now)
 static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
-    if (b == GP_BTN_5 || b == GP_BTN_6) {
-        /* Releasing one half of the 5+6 (shoulder) chord clears
-         * the latch so the next press of either isn't
-         * misinterpreted as a mode toggle. */
-        if (!s_b[GP_BTN_5].down && !s_b[GP_BTN_6].down) {
-            s_lr_chord_active = false;
-        }
+    if (b == GP_BTN_9) {
+        /* On up: enter keyboard mode. */
+        keyboard_ui_set_mode(KB_MODE_KEYBOARD);
     }
 }
 
@@ -162,6 +205,46 @@ static void tick_repeat(uint32_t now)
         if (now - s_b[i].last_repeat_ms < REPEAT_INTERVAL_MS) continue;
         s_b[i].last_repeat_ms = now;
         dir_apply((gamepad_button_t)i);
+    }
+}
+
+/* Scale one raw analog axis value into a per-poll pixel delta.
+ *
+ * The dead-zone region maps to no motion; beyond it the response
+ * is linear up to `max_step` pixels at full deflection, so the
+ * pointer speed is proportional to how far the stick is pushed.
+ * The result is clamped to the signed-8-bit range a HID mouse
+ * report can carry. */
+static int axis_to_delta(int axis, int max_step)
+{
+    int dz = CONFIG_SK_GAMEPAD_AXIS_DEADZONE;
+    int sign = 1;
+    if (axis < 0) { sign = -1; axis = -axis; }
+    if (axis <= dz) return 0;
+    if (axis > AXIS_FULL_SCALE) axis = AXIS_FULL_SCALE;
+
+    int span = AXIS_FULL_SCALE - dz;
+    if (span <= 0) span = 1;
+    int delta = (axis - dz) * max_step / span;
+
+    if (delta > MOUSE_DELTA_MAX) delta = MOUSE_DELTA_MAX;
+    return sign * delta;
+}
+
+/* Read the live analog axes and, if either is outside the
+ * dead-zone, emit a proportional mouse-motion report. Called
+ * every poll while in mouse mode. */
+static void mouse_axes_apply(void)
+{
+    int16_t ax = 0, ay = 0;
+    gamepad_uart_get_axes(&ax, &ay);
+
+    int max_step = keyboard_ui_mouse_max_step();
+    int dx = axis_to_delta(ax, max_step);
+    int dy = axis_to_delta(ay, max_step);
+
+    if (dx || dy) {
+        hid_send_mouse(dx, dy, 0, 0);
     }
 }
 
@@ -182,6 +265,13 @@ static void router_task(void *arg)
         }
         uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
         tick_repeat(now);
+
+        /* Proportional pointer motion: while in mouse mode, drive
+         * the cursor straight from the live analog axes every
+         * poll (~20 ms) so its speed tracks the stick deflection. */
+        if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
+            mouse_axes_apply();
+        }
     }
 }
 
