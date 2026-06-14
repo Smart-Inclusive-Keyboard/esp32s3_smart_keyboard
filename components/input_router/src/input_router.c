@@ -6,11 +6,11 @@
  *
  *   GP_BTN_0  normal keypress       / left mouse click
  *   GP_BTN_1  shifted keypress      / right mouse click
- *   GP_BTN_2  Space
- *   GP_BTN_3  Enter
- *   GP_BTN_4  Backspace
- *   GP_BTN_5  Ctrl + selected key   (like GP_BTN_0 with Ctrl held)
- *   GP_BTN_6  AltGr + selected key  (like GP_BTN_0 with AltGr held)
+ *   GP_BTN_2  Space                 / toggle mouse scroll mode
+ *   GP_BTN_3  Enter                 / (ignored in mouse mode)
+ *   GP_BTN_4  Backspace             / (ignored in mouse mode)
+ *   GP_BTN_5  Ctrl + selected key   / (ignored in mouse mode)
+ *   GP_BTN_6  AltGr + selected key  / (ignored in mouse mode)
  *   GP_BTN_7  unused
  *   GP_BTN_8  unused
  *   GP_BTN_9  on down -> mouse mode, on up -> keyboard mode
@@ -18,6 +18,11 @@
  * The D-pad / analog directions move the selection cursor (or the
  * mouse pointer in mouse mode, or the menu selection while the
  * settings menu is open).
+ *
+ * Mouse mode has a "scroll" sub-mode: while it is active the analog
+ * axes emit wheel-scroll HID reports instead of pointer motion.
+ * GP_BTN_2 toggles it; pressing the left/right mouse buttons
+ * (GP_BTN_0 / GP_BTN_1) leaves scroll mode and emits the click.
  */
 
 #include "input_router.h"
@@ -49,6 +54,14 @@ static const char *TAG = "input_router";
 /* HID mouse reports carry a signed 8-bit delta per axis, so a
  * single poll can move at most this many pixels. */
 #define MOUSE_DELTA_MAX 127
+
+/* True while mouse mode is in its scroll sub-mode: the analog axes
+ * emit wheel-scroll reports instead of pointer motion. Always reset
+ * when (re-)entering or leaving mouse mode. */
+static bool s_scroll_mode;
+
+#define SCROLL_INTERVAL_MS 200
+static uint32_t last_scroll_report_time = 0;
 
 /* Per-button state, used to drive hold-to-repeat. */
 typedef struct {
@@ -115,6 +128,9 @@ static void press_action(uint8_t extra_mod)
         keyboard_ui_menu_select();
         break;
     case KB_MODE_MOUSE:
+        /* Pressing the left button always emits a left click; if the
+         * scroll sub-mode is active it is cancelled first. */
+        s_scroll_mode = false;
         hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
         hid_send_mouse(0, 0, 0, 0);
         break;
@@ -148,6 +164,8 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         break;
     case GP_BTN_1:
         if (mode == KB_MODE_MOUSE) {
+            /* Right click; cancel the scroll sub-mode if active. */
+            s_scroll_mode = false;
             hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
             hid_send_mouse(0, 0, 0, 0);
         } else if (mode == KB_MODE_KEYBOARD) {
@@ -158,24 +176,32 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         }
         break;
     case GP_BTN_2:
-        send_fixed(HID_USAGE_SPACE);
+        if (mode == KB_MODE_MOUSE) {
+            /* Toggle the wheel-scroll sub-mode. */
+            s_scroll_mode = !s_scroll_mode;
+        } else {
+            send_fixed(HID_USAGE_SPACE);
+        }
         break;
     case GP_BTN_3:
-        send_fixed(HID_USAGE_ENTER);
+        if (mode != KB_MODE_MOUSE) send_fixed(HID_USAGE_ENTER);
         break;
     case GP_BTN_4:
-        send_fixed(HID_USAGE_BACKSPACE);
+        if (mode != KB_MODE_MOUSE) send_fixed(HID_USAGE_BACKSPACE);
         break;
     case GP_BTN_5:
-        /* Like GP_BTN_0 but with Ctrl held for the keypress. */
-        press_action(HID_MOD_LCTRL);
+        /* Like GP_BTN_0 but with Ctrl held for the keypress.
+         * Ignored in mouse mode. */
+        if (mode != KB_MODE_MOUSE) press_action(HID_MOD_LCTRL);
         break;
     case GP_BTN_6:
-        /* Like GP_BTN_0 but with AltGr (right Alt) held. */
-        press_action(HID_MOD_RALT);
+        /* Like GP_BTN_0 but with AltGr (right Alt) held.
+         * Ignored in mouse mode. */
+        if (mode != KB_MODE_MOUSE) press_action(HID_MOD_RALT);
         break;
     case GP_BTN_9:
-        /* On down: enter mouse mode. */
+        /* On down: enter mouse mode (scroll sub-mode off). */
+        s_scroll_mode = false;
         keyboard_ui_set_mode(KB_MODE_MOUSE);
         break;
     case GP_BTN_7:
@@ -190,7 +216,8 @@ static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
     if (b == GP_BTN_9) {
-        /* On up: enter keyboard mode. */
+        /* On up: enter keyboard mode (scroll sub-mode off). */
+        s_scroll_mode = false;
         keyboard_ui_set_mode(KB_MODE_KEYBOARD);
     }
 }
@@ -208,13 +235,17 @@ static void tick_repeat(uint32_t now)
     }
 }
 
-/* Scale one raw analog axis value into a per-poll pixel delta.
+/* Scale one raw analog axis value into a per-poll motion delta.
  *
- * The dead-zone region maps to no motion; beyond it the response
- * is linear up to `max_step` pixels at full deflection, so the
- * pointer speed is proportional to how far the stick is pushed.
- * The result is clamped to the signed-8-bit range a HID mouse
- * report can carry. */
+ * The goal is precise control near the dead-zone and faster travel
+ * as the stick is pushed: the instant the axis leaves the dead-zone
+ * the cursor creeps at a fixed slow base speed (one unit per poll),
+ * and from there the delta grows quadratically with deflection up to
+ * `max_step` units at full deflection. The quadratic term is the
+ * "acceleration": the further the stick is pushed, the faster the
+ * speed climbs, while `max_step` (the selected speed level 1..7)
+ * sets how aggressive that climb is. The result is clamped to the
+ * signed-8-bit range a HID report can carry. */
 static int axis_to_delta(int axis, int max_step)
 {
     int dz = CONFIG_SK_GAMEPAD_AXIS_DEADZONE;
@@ -225,7 +256,18 @@ static int axis_to_delta(int axis, int max_step)
 
     int span = AXIS_FULL_SCALE - dz;
     if (span <= 0) span = 1;
-    int delta = (axis - dz) * max_step / span;
+
+    /* Normalised deflection past the dead-zone, 0 < frac <= 1.
+     * delta = base + (max_step - base) * frac^2, with a base of 1 so
+     * motion starts immediately on leaving the dead-zone. Use 32-bit
+     * float for the squared term: integer math would overflow a
+     * 32-bit int (off*off alone reaches ~9.5e8 and the (max_step-1)
+     * factor pushes it past INT_MAX), and `long` is only 32 bits on
+     * this target. */
+    int base = 1;
+    if (max_step < base) max_step = base;
+    float frac = (float)(axis - dz) / (float)span;   /* 0..1 */
+    int delta = base + (int)((float)(max_step - base) * frac * frac);
 
     if (delta > MOUSE_DELTA_MAX) delta = MOUSE_DELTA_MAX;
     return sign * delta;
@@ -234,12 +276,33 @@ static int axis_to_delta(int axis, int max_step)
 /* Read the live analog axes and, if either is outside the
  * dead-zone, emit a proportional mouse-motion report. Called
  * every poll while in mouse mode. */
-static void mouse_axes_apply(void)
+static void mouse_axes_apply(uint32_t now)
 {
     int16_t ax = 0, ay = 0;
     gamepad_uart_get_axes(&ax, &ay);
 
     int max_step = keyboard_ui_mouse_max_step();
+
+    if (s_scroll_mode) {
+        if(now >= last_scroll_report_time + SCROLL_INTERVAL_MS) {
+            /* Scroll sub-mode: the axes drive wheel reports instead of
+             * pointer motion, using the very same slow-start /
+             * position-accelerated curve as the pointer. The HID mouse
+             * report exposes a single (vertical) wheel, so the Y axis is
+             * mapped to it; pushing the stick up scrolls up (wheel
+             * positive = up, while the Y axis is positive downward, hence
+             * the negation). */
+            last_scroll_report_time = now;
+            int scroll_max = max_step;
+            if (scroll_max < 1) scroll_max = 1;
+            int wheel = -axis_to_delta(ay, scroll_max);
+            if (wheel) {
+                hid_send_mouse(0, 0, 0, wheel);
+            }
+        }
+        return;
+    }
+
     int dx = axis_to_delta(ax, max_step);
     int dy = axis_to_delta(ay, max_step);
 
@@ -270,7 +333,7 @@ static void router_task(void *arg)
          * the cursor straight from the live analog axes every
          * poll (~20 ms) so its speed tracks the stick deflection. */
         if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
-            mouse_axes_apply();
+            mouse_axes_apply(now);
         }
     }
 }
