@@ -6,11 +6,11 @@
  *
  *   GP_BTN_0  normal keypress       / left mouse click
  *   GP_BTN_1  shifted keypress      / right mouse click
- *   GP_BTN_2  Space
- *   GP_BTN_3  Enter
- *   GP_BTN_4  Backspace
- *   GP_BTN_5  Ctrl + selected key   (like GP_BTN_0 with Ctrl held)
- *   GP_BTN_6  AltGr + selected key  (like GP_BTN_0 with AltGr held)
+ *   GP_BTN_2  Space                 / toggle mouse scroll mode
+ *   GP_BTN_3  Enter                 / (ignored in mouse mode)
+ *   GP_BTN_4  Backspace             / (ignored in mouse mode)
+ *   GP_BTN_5  Ctrl + selected key   / (ignored in mouse mode)
+ *   GP_BTN_6  AltGr + selected key  / (ignored in mouse mode)
  *   GP_BTN_7  unused
  *   GP_BTN_8  unused
  *   GP_BTN_9  on down -> mouse mode, on up -> keyboard mode
@@ -18,6 +18,11 @@
  * The D-pad / analog directions move the selection cursor (or the
  * mouse pointer in mouse mode, or the menu selection while the
  * settings menu is open).
+ *
+ * Mouse mode has a "scroll" sub-mode: while it is active the analog
+ * axes emit wheel-scroll HID reports instead of pointer motion.
+ * GP_BTN_2 toggles it; pressing the left/right mouse buttons
+ * (GP_BTN_0 / GP_BTN_1) leaves scroll mode and emits the click.
  */
 
 #include "input_router.h"
@@ -49,6 +54,16 @@ static const char *TAG = "input_router";
 /* HID mouse reports carry a signed 8-bit delta per axis, so a
  * single poll can move at most this many pixels. */
 #define MOUSE_DELTA_MAX 127
+
+/* Full-deflection wheel steps emitted per poll while in scroll
+ * mode. Wheel detents are coarse, so a handful per ~20 ms poll is
+ * plenty. */
+#define SCROLL_STEP_MAX 4
+
+/* True while mouse mode is in its scroll sub-mode: the analog axes
+ * emit wheel-scroll reports instead of pointer motion. Always reset
+ * when (re-)entering or leaving mouse mode. */
+static bool s_scroll_mode;
 
 /* Per-button state, used to drive hold-to-repeat. */
 typedef struct {
@@ -115,6 +130,9 @@ static void press_action(uint8_t extra_mod)
         keyboard_ui_menu_select();
         break;
     case KB_MODE_MOUSE:
+        /* Pressing the left button always emits a left click; if the
+         * scroll sub-mode is active it is cancelled first. */
+        s_scroll_mode = false;
         hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
         hid_send_mouse(0, 0, 0, 0);
         break;
@@ -148,6 +166,8 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         break;
     case GP_BTN_1:
         if (mode == KB_MODE_MOUSE) {
+            /* Right click; cancel the scroll sub-mode if active. */
+            s_scroll_mode = false;
             hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
             hid_send_mouse(0, 0, 0, 0);
         } else if (mode == KB_MODE_KEYBOARD) {
@@ -158,24 +178,32 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         }
         break;
     case GP_BTN_2:
-        send_fixed(HID_USAGE_SPACE);
+        if (mode == KB_MODE_MOUSE) {
+            /* Toggle the wheel-scroll sub-mode. */
+            s_scroll_mode = !s_scroll_mode;
+        } else {
+            send_fixed(HID_USAGE_SPACE);
+        }
         break;
     case GP_BTN_3:
-        send_fixed(HID_USAGE_ENTER);
+        if (mode != KB_MODE_MOUSE) send_fixed(HID_USAGE_ENTER);
         break;
     case GP_BTN_4:
-        send_fixed(HID_USAGE_BACKSPACE);
+        if (mode != KB_MODE_MOUSE) send_fixed(HID_USAGE_BACKSPACE);
         break;
     case GP_BTN_5:
-        /* Like GP_BTN_0 but with Ctrl held for the keypress. */
-        press_action(HID_MOD_LCTRL);
+        /* Like GP_BTN_0 but with Ctrl held for the keypress.
+         * Ignored in mouse mode. */
+        if (mode != KB_MODE_MOUSE) press_action(HID_MOD_LCTRL);
         break;
     case GP_BTN_6:
-        /* Like GP_BTN_0 but with AltGr (right Alt) held. */
-        press_action(HID_MOD_RALT);
+        /* Like GP_BTN_0 but with AltGr (right Alt) held.
+         * Ignored in mouse mode. */
+        if (mode != KB_MODE_MOUSE) press_action(HID_MOD_RALT);
         break;
     case GP_BTN_9:
-        /* On down: enter mouse mode. */
+        /* On down: enter mouse mode (scroll sub-mode off). */
+        s_scroll_mode = false;
         keyboard_ui_set_mode(KB_MODE_MOUSE);
         break;
     case GP_BTN_7:
@@ -190,7 +218,8 @@ static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
     if (b == GP_BTN_9) {
-        /* On up: enter keyboard mode. */
+        /* On up: enter keyboard mode (scroll sub-mode off). */
+        s_scroll_mode = false;
         keyboard_ui_set_mode(KB_MODE_KEYBOARD);
     }
 }
@@ -238,6 +267,19 @@ static void mouse_axes_apply(void)
 {
     int16_t ax = 0, ay = 0;
     gamepad_uart_get_axes(&ax, &ay);
+
+    if (s_scroll_mode) {
+        /* Scroll sub-mode: the axes drive wheel reports instead of
+         * pointer motion. The HID mouse report exposes a single
+         * (vertical) wheel, so the Y axis is mapped to it; pushing
+         * the stick up scrolls up (wheel positive = up, while the
+         * Y axis is positive downward, hence the negation). */
+        int wheel = -axis_to_delta(ay, SCROLL_STEP_MAX);
+        if (wheel) {
+            hid_send_mouse(0, 0, 0, wheel);
+        }
+        return;
+    }
 
     int max_step = keyboard_ui_mouse_max_step();
     int dx = axis_to_delta(ax, max_step);
