@@ -55,11 +55,6 @@ static const char *TAG = "input_router";
  * single poll can move at most this many pixels. */
 #define MOUSE_DELTA_MAX 127
 
-/* Full-deflection wheel steps emitted per poll while in scroll
- * mode. Wheel detents are coarse, so a handful per ~20 ms poll is
- * plenty. */
-#define SCROLL_STEP_MAX 4
-
 /* True while mouse mode is in its scroll sub-mode: the analog axes
  * emit wheel-scroll reports instead of pointer motion. Always reset
  * when (re-)entering or leaving mouse mode. */
@@ -237,13 +232,17 @@ static void tick_repeat(uint32_t now)
     }
 }
 
-/* Scale one raw analog axis value into a per-poll pixel delta.
+/* Scale one raw analog axis value into a per-poll motion delta.
  *
- * The dead-zone region maps to no motion; beyond it the response
- * is linear up to `max_step` pixels at full deflection, so the
- * pointer speed is proportional to how far the stick is pushed.
- * The result is clamped to the signed-8-bit range a HID mouse
- * report can carry. */
+ * The goal is precise control near the dead-zone and faster travel
+ * as the stick is pushed: the instant the axis leaves the dead-zone
+ * the cursor creeps at a fixed slow base speed (one unit per poll),
+ * and from there the delta grows quadratically with deflection up to
+ * `max_step` units at full deflection. The quadratic term is the
+ * "acceleration": the further the stick is pushed, the faster the
+ * speed climbs, while `max_step` (the selected speed level 1..7)
+ * sets how aggressive that climb is. The result is clamped to the
+ * signed-8-bit range a HID report can carry. */
 static int axis_to_delta(int axis, int max_step)
 {
     int dz = CONFIG_SK_GAMEPAD_AXIS_DEADZONE;
@@ -254,7 +253,17 @@ static int axis_to_delta(int axis, int max_step)
 
     int span = AXIS_FULL_SCALE - dz;
     if (span <= 0) span = 1;
-    int delta = (axis - dz) * max_step / span;
+
+    /* Normalised deflection past the dead-zone, 0 < off <= span.
+     * delta = base + (max_step - base) * (off / span)^2, with a
+     * base of 1 so motion starts immediately on leaving the
+     * dead-zone. 64-bit math avoids overflow when squaring. */
+    long off = axis - dz;
+    int base = 1;
+    if (max_step < base) max_step = base;
+    long accel = (long)(max_step - base) * off * off
+                 / ((long)span * span);
+    int delta = base + (int)accel;
 
     if (delta > MOUSE_DELTA_MAX) delta = MOUSE_DELTA_MAX;
     return sign * delta;
@@ -268,20 +277,27 @@ static void mouse_axes_apply(void)
     int16_t ax = 0, ay = 0;
     gamepad_uart_get_axes(&ax, &ay);
 
+    int max_step = keyboard_ui_mouse_max_step();
+
     if (s_scroll_mode) {
         /* Scroll sub-mode: the axes drive wheel reports instead of
-         * pointer motion. The HID mouse report exposes a single
-         * (vertical) wheel, so the Y axis is mapped to it; pushing
-         * the stick up scrolls up (wheel positive = up, while the
-         * Y axis is positive downward, hence the negation). */
-        int wheel = -axis_to_delta(ay, SCROLL_STEP_MAX);
+         * pointer motion, using the very same slow-start /
+         * position-accelerated curve as the pointer. Wheel detents
+         * are far coarser than pixels, so the selected speed's
+         * max step is scaled down to keep a full-deflection scroll
+         * usable. The HID mouse report exposes a single (vertical)
+         * wheel, so the Y axis is mapped to it; pushing the stick
+         * up scrolls up (wheel positive = up, while the Y axis is
+         * positive downward, hence the negation). */
+        int scroll_max = (max_step + 5) / 6;
+        if (scroll_max < 1) scroll_max = 1;
+        int wheel = -axis_to_delta(ay, scroll_max);
         if (wheel) {
             hid_send_mouse(0, 0, 0, wheel);
         }
         return;
     }
 
-    int max_step = keyboard_ui_mouse_max_step();
     int dx = axis_to_delta(ax, max_step);
     int dy = axis_to_delta(ay, max_step);
 
