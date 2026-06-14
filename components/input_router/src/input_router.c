@@ -34,6 +34,7 @@
 #include "hid.h"
 #include "kb_layout.h"
 #include "narrator.h"
+#include "sdkconfig.h"
 
 static const char *TAG = "input_router";
 
@@ -41,7 +42,13 @@ static const char *TAG = "input_router";
 #define INITIAL_REPEAT_MS 350
 #define REPEAT_INTERVAL_MS 80
 
-#define MOUSE_STEP 8  /* pixels per poll while a D-pad is held */
+/* Full-scale magnitude of a gamepad analog axis (see
+ * gamepad_uart.h: signed -32767..32767). */
+#define AXIS_FULL_SCALE 32767
+
+/* HID mouse reports carry a signed 8-bit delta per axis, so a
+ * single poll can move at most this many pixels. */
+#define MOUSE_DELTA_MAX 127
 
 /* Per-button state, used to drive hold-to-repeat. */
 typedef struct {
@@ -75,7 +82,9 @@ static void dir_apply(gamepad_button_t b)
         else    keyboard_ui_menu_adjust(dc);
         break;
     case KB_MODE_MOUSE:
-        hid_send_mouse(dc * MOUSE_STEP, dr * MOUSE_STEP, 0, 0);
+        /* Mouse motion is driven by the analog axes in
+         * mouse_axes_apply(), proportional to deflection; the
+         * coarse N/S/E/W edge events are ignored here. */
         break;
     case KB_MODE_KEYBOARD:
     default:
@@ -199,6 +208,46 @@ static void tick_repeat(uint32_t now)
     }
 }
 
+/* Scale one raw analog axis value into a per-poll pixel delta.
+ *
+ * The dead-zone region maps to no motion; beyond it the response
+ * is linear up to `max_step` pixels at full deflection, so the
+ * pointer speed is proportional to how far the stick is pushed.
+ * The result is clamped to the signed-8-bit range a HID mouse
+ * report can carry. */
+static int axis_to_delta(int axis, int max_step)
+{
+    int dz = CONFIG_SK_GAMEPAD_AXIS_DEADZONE;
+    int sign = 1;
+    if (axis < 0) { sign = -1; axis = -axis; }
+    if (axis <= dz) return 0;
+    if (axis > AXIS_FULL_SCALE) axis = AXIS_FULL_SCALE;
+
+    int span = AXIS_FULL_SCALE - dz;
+    if (span <= 0) span = 1;
+    int delta = (axis - dz) * max_step / span;
+
+    if (delta > MOUSE_DELTA_MAX) delta = MOUSE_DELTA_MAX;
+    return sign * delta;
+}
+
+/* Read the live analog axes and, if either is outside the
+ * dead-zone, emit a proportional mouse-motion report. Called
+ * every poll while in mouse mode. */
+static void mouse_axes_apply(void)
+{
+    int16_t ax = 0, ay = 0;
+    gamepad_uart_get_axes(&ax, &ay);
+
+    int max_step = keyboard_ui_mouse_max_step();
+    int dx = axis_to_delta(ax, max_step);
+    int dy = axis_to_delta(ay, max_step);
+
+    if (dx || dy) {
+        hid_send_mouse(dx, dy, 0, 0);
+    }
+}
+
 static void router_task(void *arg)
 {
     QueueHandle_t q = (QueueHandle_t)arg;
@@ -216,6 +265,13 @@ static void router_task(void *arg)
         }
         uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
         tick_repeat(now);
+
+        /* Proportional pointer motion: while in mouse mode, drive
+         * the cursor straight from the live analog axes every
+         * poll (~20 ms) so its speed tracks the stick deflection. */
+        if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
+            mouse_axes_apply();
+        }
     }
 }
 

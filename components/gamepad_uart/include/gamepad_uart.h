@@ -91,6 +91,14 @@ QueueHandle_t gamepad_uart_start(void);
  * allocated and valid for the lifetime of the process. */
 const char *gamepad_button_name(gamepad_button_t b);
 
+/* Latest raw analog axis values from the most recent frame,
+ * signed -32767..32767 (0 = centred, +X = right, +Y = down).
+ * Either pointer may be NULL. Used by input_router to drive
+ * proportional (analog) mouse motion in mouse mode, where the
+ * coarse N/S/E/W edge events are not enough. Safe to call from
+ * any task; the values are updated atomically by the RX task. */
+void gamepad_uart_get_axes(int16_t *x, int16_t *y);
+
 #ifdef __cplusplus
 }
 #endif

@@ -142,11 +142,12 @@ gamepad-navigated settings menu. While it is open the keyboard is
 replaced by the menu and the gamepad routes here: Up/Down move the
 selection, Left/Right change the highlighted value, and the action
 button (`GP_BTN_0`) activates it. The menu lets the user pick the
-colour theme and toggle which of the *available* (Kconfig-activated)
+colour theme, set the **mouse pointer speed** (7 levels, slow to
+fast) and toggle which of the *available* (Kconfig-activated)
 languages take part in the Lng rotation. Languages not activated in
 Kconfig are not listed. At least one language is always enabled and
-the active language can never be disabled. Theme choices persist to
-NVS; the language selection does not.
+the active language can never be disabled. Theme and mouse-speed
+choices persist to NVS; the language selection does not.
 
 ## Gamepad buttons
 
@@ -167,8 +168,11 @@ The external gamepad's numbered buttons map to fixed actions
 | `GP_BTN_9` | down: mouse mode; up: keyboard mode          |
 
 The D-pad / analog stick moves the selection cursor (keyboard
-mode), the pointer (mouse mode) or the menu selection (settings
-menu). `GP_BTN_5` / `GP_BTN_6` act like `GP_BTN_0` but momentarily
+mode) or the menu selection (settings menu). In **mouse mode** the
+analog axes drive the pointer **proportionally**: the further the
+stick is pushed past the dead-zone, the faster the pointer moves,
+scaled by the Mouse-speed level chosen in the settings menu.
+`GP_BTN_5` / `GP_BTN_6` act like `GP_BTN_0` but momentarily
 hold Ctrl / AltGr for that single keypress. Shift / Ctrl / Alt /
 AltGr toggled via the on-screen modifier keys are **sticky**: they
 hold the modifier until the next character key is pressed.

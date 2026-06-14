@@ -55,11 +55,21 @@ typedef struct {
     uint32_t passkey;       /* 0 = none, else 6-digit value     */
     keyboard_ui_mode_t mode;
     int      menu_sel;      /* selected row in the settings menu */
+    int      mouse_speed;   /* 0..KB_MOUSE_SPEED_LEVELS-1        */
     char     hid_status[32];
 } ui_state_t;
 
 static ui_state_t s_st;
 static QueueHandle_t s_redraw_q;
+
+/* Mouse-pointer speed levels: maximum per-poll pixel delta at
+ * full axis deflection, from slow to fast. The user picks one of
+ * these in the settings menu; input_router scales the live analog
+ * axis value by the selected entry. */
+#define MOUSE_SPEED_DEFAULT 3   /* index into s_mouse_speed_step  */
+static const int s_mouse_speed_step[KB_MOUSE_SPEED_LEVELS] = {
+    3, 6, 10, 16, 24, 34, 48,
+};
 
 /* ----- NVS persistence ----- */
 
@@ -70,6 +80,7 @@ static void nvs_save_strings(void)
     /* The active language is intentionally not persisted; the device
      * always boots with the first available layout. */
     nvs_set_str(h, "theme",  theme_active()->name);
+    nvs_set_u8(h, "mousespd", (uint8_t)s_st.mouse_speed);
     nvs_commit(h);
     nvs_close(h);
 }
@@ -82,6 +93,11 @@ static void nvs_load_strings(void)
     size_t len = sizeof(buf);
     if (nvs_get_str(h, "theme", buf, &len) == ESP_OK) {
         theme_set_active_by_name(buf);
+    }
+    uint8_t spd;
+    if (nvs_get_u8(h, "mousespd", &spd) == ESP_OK
+            && spd < KB_MOUSE_SPEED_LEVELS) {
+        s_st.mouse_speed = spd;
     }
     nvs_close(h);
 }
@@ -444,9 +460,15 @@ static void draw_mouse_overlay(const theme_t *th)
  * cursor, left/right change the highlighted item's value, and the
  * action button activates it. Items:
  *   0            Theme           (left/right cycles the palette)
- *   1..n_lang    Lang <NAME>     (left/right/action toggles enable)
- *   n_lang+1     Close
+ *   1            Mouse speed     (left/right changes the speed)
+ *   2..n_lang+1  Lang <NAME>     (left/right/action toggles enable)
+ *   n_lang+2     Close
  */
+
+/* Fixed (non-language) rows that precede the language list. */
+#define MENU_ROW_THEME       0
+#define MENU_ROW_MOUSE_SPEED 1
+#define MENU_FIXED_ROWS      2
 
 static int menu_lang_count(void)
 {
@@ -456,8 +478,15 @@ static int menu_lang_count(void)
     }
     return n;
 }
-static int menu_item_count(void) { return menu_lang_count() + 2; }
-static int menu_close_index(void) { return menu_lang_count() + 1; }
+/* Rows: fixed rows + language rows + a trailing Close row. */
+static int menu_item_count(void)
+{
+    return MENU_FIXED_ROWS + menu_lang_count() + 1;
+}
+static int menu_close_index(void)
+{
+    return MENU_FIXED_ROWS + menu_lang_count();
+}
 
 /* Map the nth (0-based) language row to its global layout index,
  * skipping layouts not activated in Kconfig. Returns -1 if out of
@@ -476,10 +505,13 @@ static int menu_lang_layout_index(int nth)
 static void menu_item_text(int idx, char *out, size_t n)
 {
     int nl = menu_lang_count();
-    if (idx == 0) {
+    if (idx == MENU_ROW_THEME) {
         snprintf(out, n, "Theme: %s", theme_active()->name);
-    } else if (idx >= 1 && idx <= nl) {
-        int li = menu_lang_layout_index(idx - 1);
+    } else if (idx == MENU_ROW_MOUSE_SPEED) {
+        snprintf(out, n, "Mouse speed: %d/%d",
+                 s_st.mouse_speed + 1, KB_MOUSE_SPEED_LEVELS);
+    } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
+        int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
         const kb_layout_t *l = kb_layout_by_index(li);
         snprintf(out, n, "Lang %s: %s",
                  l ? l->name : "?",
@@ -559,6 +591,7 @@ void keyboard_ui_init(void)
     s_st.sel_row = 0;
     s_st.sel_col = 0;
     s_st.mode    = KB_MODE_KEYBOARD;
+    s_st.mouse_speed = MOUSE_SPEED_DEFAULT;
     snprintf(s_st.hid_status, sizeof(s_st.hid_status), "HID: idle");
 
     nvs_load_strings();
@@ -794,6 +827,26 @@ void keyboard_ui_cycle_theme(void)
     keyboard_ui_request_redraw();
 }
 
+int keyboard_ui_mouse_max_step(void)
+{
+    int i = s_st.mouse_speed;
+    if (i < 0 || i >= KB_MOUSE_SPEED_LEVELS) i = MOUSE_SPEED_DEFAULT;
+    return s_mouse_speed_step[i];
+}
+
+/* Step the mouse-speed level by delta (wrapping), persist it, and
+ * redraw so the menu reflects the new value. */
+static void mouse_speed_adjust(int delta)
+{
+    int n = KB_MOUSE_SPEED_LEVELS;
+    int v = s_st.mouse_speed + delta;
+    while (v < 0)  v += n;
+    while (v >= n) v -= n;
+    s_st.mouse_speed = v;
+    nvs_save_strings();
+    keyboard_ui_request_redraw();
+}
+
 int keyboard_ui_selected_shift(void)
 {
     return (s_st.mod_sticky | s_st.mod_oneshot)
@@ -839,11 +892,13 @@ void keyboard_ui_menu_adjust(int delta)
     if (s_st.mode != KB_MODE_MENU) return;
     int nl = menu_lang_count();
     int idx = s_st.menu_sel;
-    if (idx == 0) {
+    if (idx == MENU_ROW_THEME) {
         (void)delta;
         keyboard_ui_cycle_theme();   /* persists + redraws */
-    } else if (idx >= 1 && idx <= nl) {
-        int li = menu_lang_layout_index(idx - 1);
+    } else if (idx == MENU_ROW_MOUSE_SPEED) {
+        mouse_speed_adjust(delta ? delta : 1);  /* persists + redraws */
+    } else if (idx >= MENU_FIXED_ROWS && idx < MENU_FIXED_ROWS + nl) {
+        int li = menu_lang_layout_index(idx - MENU_FIXED_ROWS);
         if (li < 0) return;
         const kb_layout_t *before = kb_layout_active();
         kb_layout_set_enabled(li, !kb_layout_is_enabled(li));

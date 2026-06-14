@@ -99,6 +99,13 @@ void keyboard_ui_cycle_layout(void);
 /* Cycle to the next built-in theme. Persists the choice in NVS. */
 void keyboard_ui_cycle_theme(void);
 
+/* Mouse-pointer speed factor. The setting is one of a small
+ * number of discrete levels (slow .. fast); input_router reads
+ * keyboard_ui_mouse_max_step() to scale the analog axis into a
+ * per-poll pixel delta. The choice is persisted to NVS. */
+#define KB_MOUSE_SPEED_LEVELS 7
+int keyboard_ui_mouse_max_step(void);
+
 /* True (non-zero) if the Shift modifier (sticky or one-shot) is
  * currently engaged. Exposed for the narrator so it speaks the
  * shifted glyph that would actually be sent. */
