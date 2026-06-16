@@ -22,7 +22,6 @@
  * Mouse mode has a "scroll" sub-mode: while it is active the analog
  * axes emit wheel-scroll HID reports instead of pointer motion.
  * GP_BTN_2 toggles it; pressing the left/right mouse buttons
- * (GP_BTN_0 / GP_BTN_1) leaves scroll mode and emits the click.
  */
 
 #include "input_router.h"
@@ -71,6 +70,9 @@ typedef struct {
 } btn_state_t;
 
 static btn_state_t s_b[GP_BTN_COUNT];
+
+/* current state of mouse buttons that we send in HID reports */
+static uint8_t s_mouse_buttons;
 
 static inline bool is_dir(gamepad_button_t b)
 {
@@ -128,11 +130,11 @@ static void press_action(uint8_t extra_mod)
         keyboard_ui_menu_select();
         break;
     case KB_MODE_MOUSE:
-        /* Pressing the left button always emits a left click; if the
-         * scroll sub-mode is active it is cancelled first. */
-        s_scroll_mode = false;
-        hid_send_mouse(0, 0, HID_MS_BTN_LEFT, 0);
-        hid_send_mouse(0, 0, 0, 0);
+        /* Pressing the left button emits a left click */
+        if (!s_scroll_mode) {
+            s_mouse_buttons |= HID_MS_BTN_LEFT;
+            hid_send_mouse(0, 0, s_mouse_buttons, 0);
+        }
         break;
     case KB_MODE_KEYBOARD:
     default:
@@ -164,10 +166,11 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         break;
     case GP_BTN_1:
         if (mode == KB_MODE_MOUSE) {
-            /* Right click; cancel the scroll sub-mode if active. */
-            s_scroll_mode = false;
-            hid_send_mouse(0, 0, HID_MS_BTN_RIGHT, 0);
-            hid_send_mouse(0, 0, 0, 0);
+            /* Right click */
+            if (!s_scroll_mode) {
+                s_mouse_buttons |= HID_MS_BTN_RIGHT;
+                hid_send_mouse(0, 0, s_mouse_buttons, 0);
+            }
         } else if (mode == KB_MODE_KEYBOARD) {
             /* Shifted keypress: latch a one-shot Shift, then press
              * the selected key (which clears it again). */
@@ -179,6 +182,9 @@ static void handle_down(gamepad_button_t b, uint32_t now)
         if (mode == KB_MODE_MOUSE) {
             /* Toggle the wheel-scroll sub-mode. */
             s_scroll_mode = !s_scroll_mode;
+            if (s_scroll_mode) {
+                s_mouse_buttons = 0;
+            }
         } else {
             send_fixed(HID_USAGE_SPACE);
         }
@@ -202,6 +208,7 @@ static void handle_down(gamepad_button_t b, uint32_t now)
     case GP_BTN_9:
         /* On down: enter mouse mode (scroll sub-mode off). */
         s_scroll_mode = false;
+        s_mouse_buttons = 0;
         keyboard_ui_set_mode(KB_MODE_MOUSE);
         break;
     case GP_BTN_7:
@@ -215,7 +222,17 @@ static void handle_down(gamepad_button_t b, uint32_t now)
 static void handle_up(gamepad_button_t b)
 {
     s_b[b].down = false;
-    if (b == GP_BTN_9) {
+    if (keyboard_ui_get_mode() == KB_MODE_MOUSE && (b == GP_BTN_0 || b == GP_BTN_1)) {
+        /* mouse button release */
+        if (b == GP_BTN_0) {
+            s_mouse_buttons &= ~HID_MS_BTN_LEFT;
+        }
+        else {
+            s_mouse_buttons &= ~HID_MS_BTN_RIGHT;
+        }
+        hid_send_mouse(0, 0, s_mouse_buttons, 0);
+    }
+    else if (b == GP_BTN_9) {
         /* On up: enter keyboard mode (scroll sub-mode off). */
         s_scroll_mode = false;
         keyboard_ui_set_mode(KB_MODE_KEYBOARD);
@@ -307,7 +324,7 @@ static void mouse_axes_apply(uint32_t now)
     int dy = axis_to_delta(ay, max_step);
 
     if (dx || dy) {
-        hid_send_mouse(dx, dy, 0, 0);
+        hid_send_mouse(dx, dy, s_mouse_buttons, 0);
     }
 }
 
