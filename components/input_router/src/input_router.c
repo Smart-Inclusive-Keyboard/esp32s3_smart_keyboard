@@ -317,23 +317,29 @@ static void router_task(void *arg)
     gamepad_event_t ev;
 
     while (1) {
+        bool is_mouse_mode = (keyboard_ui_get_mode() == KB_MODE_MOUSE);
+
         /* Wake up at least every 20 ms so we can service
          * hold-to-repeat even while no new events arrive. */
         if (xQueueReceive(q, &ev, pdMS_TO_TICKS(20)) == pdTRUE) {
-            ESP_LOGD(TAG, "%s %s",
-                     gamepad_button_name(ev.button),
-                     ev.pressed ? "down" : "up");
-            if (ev.pressed) handle_down(ev.button, ev.time_ms);
-            else            handle_up(ev.button);
+            if (!is_mouse_mode || !is_dir(ev.button)) {
+                ESP_LOGD(TAG, "%s %s", gamepad_button_name(ev.button), ev.pressed ? "down" : "up");
+                if (ev.pressed)
+                    handle_down(ev.button, ev.time_ms);
+                else
+                    handle_up(ev.button);
+            }
         }
-        uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
-        tick_repeat(now);
 
-        /* Proportional pointer motion: while in mouse mode, drive
-         * the cursor straight from the live analog axes every
-         * poll (~20 ms) so its speed tracks the stick deflection. */
-        if (keyboard_ui_get_mode() == KB_MODE_MOUSE) {
+        uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+        if( is_mouse_mode ) {
+            /* Proportional pointer motion: while in mouse mode, drive
+             * the cursor straight from the live analog axes every
+             * poll (~20 ms) so its speed tracks the stick deflection. */
             mouse_axes_apply(now);
+        }
+        else {
+            tick_repeat(now);
         }
     }
 }
