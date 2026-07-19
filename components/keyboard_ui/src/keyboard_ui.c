@@ -609,6 +609,7 @@ static void draw_menu(const theme_t *th)
         int len = (int)strlen(line);
         if (len > max_len) max_len = len;
     }
+    if (max_len < 1) max_len = 1;
 
     int box_x = w / 8;
     int box_w = w - w / 4;      /* highlighted row width          */
