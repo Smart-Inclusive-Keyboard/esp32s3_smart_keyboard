@@ -23,22 +23,28 @@ both to be useful.
 
 ## Gamepad transport
 
-The external gamepad is a separate board that streams its HID
+The external gamepads are separate boards that stream their HID
 report into this firmware over a one-way (receive-only) UART
-link (8-N-1). This firmware never transmits. The 6-byte report
-format and `gamepad_event_t` queue feed a transport-agnostic
-`input_router`.
+link (8-N-1). This firmware never transmits. Two gamepads are
+supported; both feed the same `gamepad_event_t` queue and drive
+the same on-screen keyboard. The 6-byte report format and queue
+feed a transport-agnostic `input_router`.
 
 | Option                            | Default | Range                |
 | --------------------------------- | ------- | -------------------- |
 | `SK_GAMEPAD_AXIS_DEADZONE`        | 8000    | 0..32767             |
-| `SK_GAMEPAD_UART_PORT`            | 1       | 1..2 (UART1 / UART2) |
-| `SK_GAMEPAD_UART_RX_GPIO`         | 11      | any GPIO             |
-| `SK_GAMEPAD_UART_BAUD`            | 115200  | any baud rate        |
+| `SK_GAMEPAD1_UART_PORT`           | 1       | 1..2 (UART1 / UART2) |
+| `SK_GAMEPAD1_UART_RX_GPIO`        | 21      | any GPIO, -1 = off   |
+| `SK_GAMEPAD1_UART_BAUD`           | 115200  | any baud rate        |
+| `SK_GAMEPAD2_UART_PORT`           | 2       | 1..2 (UART1 / UART2) |
+| `SK_GAMEPAD2_UART_RX_GPIO`        | 38      | any GPIO, -1 = off   |
+| `SK_GAMEPAD2_UART_BAUD`           | 115200  | any baud rate        |
 
-The RX pin is connected to the gamepad's TX line; no TX / RTS /
-CTS pin is driven. `SK_GAMEPAD_AXIS_DEADZONE` is applied to the
-signed 16-bit analog axes carried in the report. See
+Each RX pin is connected to a gamepad's TX line; no TX / RTS /
+CTS pin is driven. The two gamepads must use different UART ports.
+Set a gamepad's `*_UART_RX_GPIO` to -1 to disable it.
+`SK_GAMEPAD_AXIS_DEADZONE` is shared by both gamepads and applied
+to the signed 16-bit analog axes carried in the report. See
 [HARDWARE.md](HARDWARE.md) for the wire format and button map.
 
 ## HID transport

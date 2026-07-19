@@ -117,18 +117,25 @@ typedef struct {
     bool    swap_xy;    /* swap axes (apply after mirror_*)       */
 } board_touch_t;
 
+/* One receive-only UART link to an external gamepad board. rx is
+ * -1 when this gamepad is not wired. */
+typedef struct {
+    int port;   /* UART peripheral number (UART1 / UART2)          */
+    int rx;     /* RX GPIO (gamepad TX line); -1 = not wired       */
+    int baud;   /* link baud rate (8-N-1)                          */
+} board_gamepad_uart_t;
+
 typedef struct {
     const char         *name;            /* human-readable board id   */
     board_display_type_t display_type;
     board_display_t     display;
 
-    /* UART used to receive the external gamepad's HID reports.
-     * The link is receive-only (8-N-1); uart_rx is the GPIO the
-     * gamepad's TX line is wired to, and is -1 when no gamepad
-     * UART is wired on the board. */
-    int  uart_port;
-    int  uart_rx;
-    int  uart_baud;
+    /* UART links used to receive the external gamepads' HID
+     * reports. Two gamepads are supported; both feed the same
+     * on-screen keyboard. Each link is receive-only (8-N-1); rx is
+     * the GPIO the gamepad's TX line is wired to, and is -1 when
+     * that gamepad UART is not wired on the board. */
+    board_gamepad_uart_t gamepad_uart[2];
 
     /* Optional I2S audio output (only valid when CONFIG_BOARD_HAS_SPEAKER). */
     board_i2s_t i2s;

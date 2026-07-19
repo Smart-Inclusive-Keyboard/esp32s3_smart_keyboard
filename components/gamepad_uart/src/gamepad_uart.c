@@ -12,6 +12,8 @@
 
 #include "gamepad_uart.h"
 
+#include <stdio.h>
+
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <driver/uart.h>
@@ -54,16 +56,29 @@ static const char *TAG = "gamepad_uart";
  * FIFO (128 bytes); a couple of frames of slack is plenty. */
 #define GP_UART_RX_BUF_SIZE 256
 
+/* Number of external gamepads supported. Both feed the same event
+ * queue so they drive the same on-screen keyboard. */
+#define GP_MAX_PADS 2
+
 static QueueHandle_t s_queue;
-static uart_port_t   s_port;
 
-/* The previous frame's logical button bitmap, used for edge
- * detection. Bit positions match the gamepad_button_t enum. */
-static uint32_t s_prev_state;
+/* Per-gamepad receive context. Each RX task owns one of these so
+ * the two links keep independent frame alignment and edge state. */
+typedef struct {
+    uart_port_t port;
+    int         rx;
+    int         baud;
+    /* The previous frame's logical button bitmap, used for edge
+     * detection. Bit positions match the gamepad_button_t enum. */
+    uint32_t    prev_state;
+} gp_ctx_t;
 
-/* Latest raw analog axis values, refreshed on every decoded
- * frame. 16-bit stores are atomic on the targets we build for,
- * so a plain read from another task sees a consistent value. */
+static gp_ctx_t s_ctx[GP_MAX_PADS];
+
+/* Latest raw analog axis values, refreshed on every decoded frame
+ * from either gamepad. 16-bit stores are atomic on the targets we
+ * build for, so a plain read from another task sees a consistent
+ * value. */
 static volatile int16_t s_axis_x;
 static volatile int16_t s_axis_y;
 
@@ -130,19 +145,19 @@ static void emit_edges(uint32_t prev, uint32_t cur)
 
 static void rx_task(void *arg)
 {
-    (void)arg;
+    gp_ctx_t *ctx = (gp_ctx_t *)arg;
     uint8_t buf[GP_UART_FRAME_LEN];
 
     while (1) {
         /* Block until a full frame arrives. The link carries
          * nothing but back-to-back 6-byte reports, so a fixed
          * read keeps the two sides frame-aligned. */
-        int n = uart_read_bytes(s_port, buf, sizeof(buf), portMAX_DELAY);
+        int n = uart_read_bytes(ctx->port, buf, sizeof(buf), portMAX_DELAY);
         if (n == (int)sizeof(buf)) {
             uint32_t cur = gamepad_parse_report(buf);
-            if (cur != s_prev_state) {
-                emit_edges(s_prev_state, cur);
-                s_prev_state = cur;
+            if (cur != ctx->prev_state) {
+                emit_edges(ctx->prev_state, cur);
+                ctx->prev_state = cur;
             }
         } else if (n < 0) {
             /* Spam-limit the log: one line per ~64 errors. */
@@ -154,24 +169,18 @@ static void rx_task(void *arg)
     }
 }
 
-QueueHandle_t gamepad_uart_start(void)
+/* Bring up one gamepad UART link (driver + pins) and spawn its RX
+ * task. Returns true on success, false if the link could not be
+ * started. */
+static bool gamepad_start_one(gp_ctx_t *ctx, int index)
 {
-    if (s_queue) return s_queue;
-
-    const board_t *b = board_get();
-
-    if (b->uart_rx < 0) {
-        ESP_LOGE(TAG, "board has no gamepad UART RX pin configured");
-        return NULL;
-    }
-
-    s_port = (uart_port_t)b->uart_port;
+    ctx->prev_state = 0;
 
     /* 1. UART driver + parameters. tx_buffer_size 0 means the
      * (unused) TX path writes straight to the FIFO; we never
      * transmit. */
     const uart_config_t cfg = {
-        .baud_rate  = b->uart_baud,
+        .baud_rate  = ctx->baud,
         .data_bits  = UART_DATA_8_BITS,
         .parity     = UART_PARITY_DISABLE,
         .stop_bits  = UART_STOP_BITS_1,
@@ -179,37 +188,74 @@ QueueHandle_t gamepad_uart_start(void)
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    esp_err_t err = uart_driver_install(s_port, GP_UART_RX_BUF_SIZE,
+    esp_err_t err = uart_driver_install(ctx->port, GP_UART_RX_BUF_SIZE,
                                         0, 0, NULL, 0);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "uart_driver_install failed: %s", esp_err_to_name(err));
-        return NULL;
+        ESP_LOGE(TAG, "gamepad %d: uart_driver_install failed: %s",
+                 index + 1, esp_err_to_name(err));
+        return false;
     }
 
-    err = uart_param_config(s_port, &cfg);
+    err = uart_param_config(ctx->port, &cfg);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "uart_param_config failed: %s", esp_err_to_name(err));
-        return NULL;
+        ESP_LOGE(TAG, "gamepad %d: uart_param_config failed: %s",
+                 index + 1, esp_err_to_name(err));
+        return false;
     }
 
     /* Receive only: assign the RX pin, leave TX / RTS / CTS
      * unchanged (unconnected). */
-    err = uart_set_pin(s_port, UART_PIN_NO_CHANGE, b->uart_rx,
+    err = uart_set_pin(ctx->port, UART_PIN_NO_CHANGE, ctx->rx,
                        UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "uart_set_pin failed: %s", esp_err_to_name(err));
-        return NULL;
+        ESP_LOGE(TAG, "gamepad %d: uart_set_pin failed: %s",
+                 index + 1, esp_err_to_name(err));
+        return false;
     }
 
-    /* 2. Event queue + RX task. */
+    char name[12];
+    snprintf(name, sizeof(name), "gamepad%d", index + 1);
+    BaseType_t ok = xTaskCreatePinnedToCore(rx_task, name, 3072, ctx,
+                                             5, NULL, 0);
+    if (ok != pdPASS) {
+        ESP_LOGE(TAG, "gamepad %d: failed to create RX task", index + 1);
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Gamepad %d receiving on UART%d (RX=%d) %d baud 8-N-1, RX only",
+             index + 1, (int)ctx->port, ctx->rx, ctx->baud);
+    return true;
+}
+
+QueueHandle_t gamepad_uart_start(void)
+{
+    if (s_queue) return s_queue;
+
+    const board_t *b = board_get();
+
+    /* Shared event queue for both gamepads. */
     s_queue = xQueueCreate(16, sizeof(gamepad_event_t));
     if (!s_queue) return NULL;
 
-    BaseType_t ok = xTaskCreatePinnedToCore(rx_task, "gamepad",
-                                            3072, NULL, 5, NULL, 0);
-    if (ok != pdPASS) return NULL;
+    int started = 0;
+    for (int i = 0; i < GP_MAX_PADS; ++i) {
+        if (b->gamepad_uart[i].rx < 0) {
+            continue;    /* gamepad not wired on this board */
+        }
+        s_ctx[i].port = (uart_port_t)b->gamepad_uart[i].port;
+        s_ctx[i].rx   = b->gamepad_uart[i].rx;
+        s_ctx[i].baud = b->gamepad_uart[i].baud;
+        if (gamepad_start_one(&s_ctx[i], i)) {
+            ++started;
+        }
+    }
 
-    ESP_LOGI(TAG, "Receiving on UART%d (RX=%d) %d baud 8-N-1, RX only",
-             (int)s_port, b->uart_rx, b->uart_baud);
+    if (started == 0) {
+        ESP_LOGE(TAG, "no gamepad UART RX pin configured");
+        vQueueDelete(s_queue);
+        s_queue = NULL;
+        return NULL;
+    }
+
     return s_queue;
 }

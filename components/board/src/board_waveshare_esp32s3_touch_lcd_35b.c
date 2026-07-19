@@ -26,12 +26,13 @@
  *   correct I2S pins and selects BOARD_HAS_SPEAKER so the
  *   audio / narrator components are compiled in.
  *
- *   External gamepad UART: the companion gamepad board streams
- *   its HID report TX-only into this board's RX pin (8-N-1,
- *   115200 baud by default). The default RX pin is GPIO 11,
- *   which is free on this board (the SK_GAMEPAD_UART_* Kconfig
- *   defaults can be used as-is). The interface is receive-only;
- *   no TX / RTS / CTS line is driven.
+ *   External gamepad UARTs: up to two companion gamepad boards
+ *       stream their HID reports TX-only into this board's RX pins
+ *       (8-N-1, 115200 baud by default). The default RX pins are
+ *       GPIO 21 and GPIO 38, which are free on this board (the
+ *       SK_GAMEPAD1/2_UART_* Kconfig defaults can be used as-is).
+ *       The interface is receive-only; no TX / RTS / CTS line is
+ *       driven.
  *
  * References:
  *   https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5B
@@ -65,15 +66,20 @@ const board_t g_board = {
         .height = 320,
         .swap_xy = true,
     },
-    /* External gamepad UART link. The companion gamepad board
-     * streams its HID report TX-only into our RX pin (8-N-1).
-     * GPIO 11 is free on this board (display owns {1,2,3,4,5,6,
-     * 12}, audio / touch own {7,8,13,15,16,44}), so the
-     * SK_GAMEPAD_UART_RX_GPIO Kconfig default of 11 is safe to
-     * use as-is here. */
-    .uart_port = CONFIG_SK_GAMEPAD_UART_PORT,
-    .uart_rx   = CONFIG_SK_GAMEPAD_UART_RX_GPIO,
-    .uart_baud = CONFIG_SK_GAMEPAD_UART_BAUD,
+    /* External gamepad UART links. Up to two companion gamepad
+     * boards stream their HID reports TX-only into our RX pins
+     * (8-N-1). GPIO 21 and 38 are free on this board (display owns
+     * {1,2,3,4,5,6,12}, audio / touch own {7,8,13,15,16,44}), so
+     * the SK_GAMEPAD1/2_UART_RX_GPIO Kconfig defaults of 21 / 38
+     * are safe to use as-is here. */
+    .gamepad_uart = {
+        { .port = CONFIG_SK_GAMEPAD1_UART_PORT,
+          .rx   = CONFIG_SK_GAMEPAD1_UART_RX_GPIO,
+          .baud = CONFIG_SK_GAMEPAD1_UART_BAUD },
+        { .port = CONFIG_SK_GAMEPAD2_UART_PORT,
+          .rx   = CONFIG_SK_GAMEPAD2_UART_RX_GPIO,
+          .baud = CONFIG_SK_GAMEPAD2_UART_BAUD },
+    },
     .i2s = {
         /* On-board ES8311 codec wiring -- fixed by the PCB. */
         .mclk = 44,
@@ -154,7 +160,10 @@ const board_t g_board = {
     (!SK_35B_PIN_CONFLICTS_DISPLAY(p) && \
      !SK_35B_PIN_CONFLICTS_AUDIO(p))
 
-_Static_assert(SK_35B_GAMEPAD_PIN_OK(CONFIG_SK_GAMEPAD_UART_RX_GPIO),
-    "Waveshare 3.5B: gamepad UART RX must not overlap display/audio pins");
+_Static_assert(SK_35B_GAMEPAD_PIN_OK(CONFIG_SK_GAMEPAD1_UART_RX_GPIO),
+    "Waveshare 3.5B: gamepad 1 UART RX must not overlap display/audio pins");
+
+_Static_assert(SK_35B_GAMEPAD_PIN_OK(CONFIG_SK_GAMEPAD2_UART_RX_GPIO),
+    "Waveshare 3.5B: gamepad 2 UART RX must not overlap display/audio pins");
 
 #endif /* CONFIG_SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B */

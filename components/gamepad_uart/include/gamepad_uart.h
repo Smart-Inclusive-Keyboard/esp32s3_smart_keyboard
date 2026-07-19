@@ -3,10 +3,12 @@
 /*
  * External UART gamepad client.
  *
- * The gamepad is a separate board (see
+ * Each gamepad is a separate board (see
  * https://github.com/clackups/esp32s3_dual_foc_gp) that streams
- * its HID report over a one-way serial link. This firmware only
- * receives: 8-N-1 UART at CONFIG_SK_GAMEPAD_UART_BAUD baud
+ * its HID report over a one-way serial link. Two gamepads are
+ * supported; both feed the same event queue and drive the same
+ * on-screen keyboard. This firmware only receives: 8-N-1 UART at
+ * CONFIG_SK_GAMEPAD1_UART_BAUD / CONFIG_SK_GAMEPAD2_UART_BAUD baud
  * (115200 by default), RX only -- no TX / RTS / CTS line is
  * driven.
  *
@@ -77,13 +79,14 @@ typedef struct {
 } gamepad_event_t;
 
 /*
- * Start the gamepad task. Returns the queue handle on which
- * gamepad_event_t messages will arrive (queue size ~16).
- * Returns NULL on error.
+ * Start the gamepad tasks. Returns the queue handle on which
+ * gamepad_event_t messages from either gamepad will arrive (queue
+ * size ~16). Returns NULL if no gamepad could be started.
  *
- * Safe to call after board_init(); installs the UART driver in
- * receive-only mode on the board's uart_port / uart_rx and
- * starts a low-priority RX task pinned to core 0.
+ * Safe to call after board_init(); for each wired gamepad (rx >= 0)
+ * it installs the UART driver in receive-only mode on the board's
+ * gamepad_uart[i].port / .rx and starts a low-priority RX task
+ * pinned to core 0. Both tasks post to the same shared queue.
  */
 QueueHandle_t gamepad_uart_start(void);
 
