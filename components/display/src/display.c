@@ -233,6 +233,29 @@ void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
     }
 }
 
+void display_draw_glyph_10x20_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent)
+{
+    if (cw < 1) cw = 1;
+    if (ch < 1) ch = 1;
+    const uint8_t *g = font_glyph_10x20_cp(cp);
+    for (int py = 0; py < ch; ++py) {
+        /* Nearest-neighbour map the target row/col back onto the
+         * native 10x20 source grid. */
+        int row = py * FONT10X20_H / ch;
+        for (int px = 0; px < cw; ++px) {
+            int col = px * FONT10X20_W / cw;
+            if (font_pixel_in_10x20(g, col, row)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
 void display_flush(void)
 {
     if (!s_be.flush) return;

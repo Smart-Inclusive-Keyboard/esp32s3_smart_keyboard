@@ -90,6 +90,17 @@ void display_draw_string_10x20(int x, int y, const char *s,
 void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
                                  uint16_t fg, uint16_t bg, bool transparent);
 
+/* Draw a 10x20 codepoint glyph nearest-neighbour scaled to an
+ * arbitrary width x height box (in pixels). Like
+ * display_draw_glyph_10x20_cp() but can shrink the glyph below its
+ * native 10x20 size, used to fit non-ASCII single-letter key labels
+ * (e.g. the Cyrillic glyphs of the Ukrainian layout) into small
+ * cells on low-resolution panels. `cw` / `ch` must be >= 1. */
+void display_draw_glyph_10x20_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent);
+
 /* Push the framebuffer's dirty bounding box to the panel. The
  * backend internally tracks the bbox; pixel-setting calls expand
  * it. Returns when DMA completes. */

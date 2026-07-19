@@ -403,16 +403,33 @@ static void draw_keyboard(const theme_t *th)
                              & HID_MOD_LSHIFT) != 0;
 
             /* Non-ASCII single-glyph keys (e.g. the Ukrainian
-             * alphabet) carry a Unicode codepoint. Render the glyph
-             * directly via the 10x20 font, upper-cased while Shift is
-             * held. Falls through to the ASCII transliteration label
-             * when the cell is too small for the 10x20 glyph. */
-            if (k->glyph && ui_use_hires_labels() &&
-                cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+             * alphabet) carry a Unicode codepoint. Always render the
+             * real glyph (upper-cased while Shift is held) from the
+             * 10x20 font's embedded Cyrillic set: at native size when
+             * the cell is large enough, otherwise nearest-neighbour
+             * scaled down (keeping the 10:20 aspect ratio) so small
+             * 320x240 panels still show Cyrillic letters instead of
+             * the ASCII transliteration fallback. */
+            if (k->glyph) {
                 uint32_t cp = shift_on ? cyr_upper(k->glyph) : k->glyph;
-                int tx = x + (cell - FONT10X20_W) / 2;
-                int ty = y + (cell - FONT10X20_H) / 2;
-                display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                if (cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+                    int tx = x + (cell - FONT10X20_W) / 2;
+                    int ty = y + (cell - FONT10X20_H) / 2;
+                    display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                } else {
+                    int gh = cell - 4;
+                    int gw = gh * FONT10X20_W / FONT10X20_H;
+                    if (gw > cell - 2) {
+                        gw = cell - 2;
+                        gh = gw * FONT10X20_H / FONT10X20_W;
+                    }
+                    if (gw < 1) gw = 1;
+                    if (gh < 1) gh = 1;
+                    int tx = x + (cell - gw) / 2;
+                    int ty = y + (cell - gh) / 2;
+                    display_draw_glyph_10x20_cp_wh(tx, ty, cp, gw, gh,
+                                                   fg, bg, true);
+                }
                 continue;
             }
 
@@ -578,26 +595,67 @@ static void draw_menu(const theme_t *th)
     int h = display_height() - STATUS_BAR_H;
     display_fill_rect(0, y0, w, h, th->win_bg);
 
-    const char *title = "SETTINGS";
-    display_draw_string((w - (int)strlen(title) * 8 * 2) / 2, y0 + 8,
-                        title, 2, th->key_label, th->win_bg, true);
-
     int n = menu_item_count();
-    int row_h = 28;
-    int top = y0 + 8 + 24 + 8;
-    /* Vertically centre the list in the remaining space. */
-    int avail = y0 + h - top;
-    if (avail > n * row_h) top += (avail - n * row_h) / 2;
 
+    /* Measure the widest row (and the title) so the text scale can
+     * be chosen to keep every line inside the list box. The menu
+     * must fit on small 320x240 panels as well as the larger
+     * 480x320 ones, so nothing here is a fixed pixel size. */
+    const char *title = "SETTINGS";
     char line[40];
+    int max_len = (int)strlen(title);
+    for (int i = 0; i < n; ++i) {
+        menu_item_text(i, line, sizeof(line));
+        int len = (int)strlen(line);
+        if (len > max_len) max_len = len;
+    }
+
+    int box_x = w / 8;
+    int box_w = w - w / 4;      /* highlighted row width          */
+    int text_pad = 8;           /* left padding of the row text   */
+    int avail_w = box_w - 2 * text_pad;
+
+    /* Largest integer 8x8 scale whose widest row still fits the box
+     * width; capped at 2 (the previous fixed size). */
+    int text_scale = avail_w / (max_len * 8);
+    if (text_scale < 1) text_scale = 1;
+    if (text_scale > 2) text_scale = 2;
+
+    /* Vertical budget: title band then the item list. */
+    int title_scale = text_scale;
+    int title_h = 8 * title_scale;
+    int top = y0 + 8 + title_h + 8;
+    int avail_h = y0 + h - top - 4;
+
+    /* Row height fits all rows in the remaining space, capped so the
+     * list doesn't look sparse on tall panels. */
+    int row_h = (n > 0) ? avail_h / n : avail_h;
+    if (row_h > 28) row_h = 28;
+    if (row_h < 8)  row_h = 8;
+
+    /* Shrink the text if a row is too short for the chosen scale. */
+    while (text_scale > 1 && 8 * text_scale > row_h - 2) {
+        text_scale--;
+    }
+
+    display_draw_string((w - (int)strlen(title) * 8 * title_scale) / 2,
+                        y0 + 8, title, title_scale,
+                        th->key_label, th->win_bg, true);
+
+    /* Vertically centre the list in the remaining space. */
+    int list_h = n * row_h;
+    if (avail_h > list_h) top += (avail_h - list_h) / 2;
+
     for (int i = 0; i < n; ++i) {
         bool sel = (i == s_st.menu_sel);
         int y = top + i * row_h;
         uint16_t bg = sel ? th->nav_sel_bg : th->win_bg;
         uint16_t fg = sel ? th->nav_sel_fg : th->key_label;
-        display_fill_rect(w / 8, y - 2, w - w / 4, row_h - 4, bg);
+        display_fill_rect(box_x, y, box_w, row_h - 2, bg);
         menu_item_text(i, line, sizeof(line));
-        display_draw_string(w / 8 + 8, y + 2, line, 2, fg, bg, true);
+        int ty = y + (row_h - 2 - 8 * text_scale) / 2;
+        display_draw_string(box_x + text_pad, ty, line, text_scale,
+                            fg, bg, true);
     }
 }
 
