@@ -4,11 +4,16 @@
  * Tiny embedded bitmap fonts for the Smart Keyboard UI.
  *
  * We don't depend on LVGL, so the font format is deliberately
- * minimal: one byte per row, MSB = leftmost pixel. The base font
- * is the public-domain font8x8 by Daniel Hepper (an IBM PC VGA
- * derivative), covering ASCII 0x20..0x7E. Larger pixel sizes
- * (16, 24) are produced by integer-scaling each glyph at draw
- * time -- the source bitmap is the same.
+ * minimal: one byte per row, MSB = leftmost pixel (the 8x8 base
+ * font packs each row LSB-first instead; see font_pixel_8x8).
+ * All glyph tables are now derived from Greybeard, a vector /
+ * bitmap port of Uwe Waldmann's UW ttyp0 (MIT License):
+ * https://github.com/flowchartsman/greybeard
+ *   - the 8x8 base font is box-downscaled from Greybeard gb-16,
+ *   - the 10x20 font is rendered from Greybeard gb-18,
+ *   - the 12x16 font is rendered from Greybeard gb-16.
+ * Larger pixel sizes are produced by integer-scaling each glyph
+ * at draw time -- the source bitmap is the same.
  *
  * The display component is responsible for actually plotting
  * pixels; this file just hands out raw glyph rows.
