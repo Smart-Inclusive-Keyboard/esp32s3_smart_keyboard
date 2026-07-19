@@ -17,7 +17,7 @@
 | Gamepad 2 UART RX  | 3           | receive-only, 8-N-1, 115200 baud   |
 | I2S MCLK / BCLK / LRCK / DOUT | 4 / 5 / 7 / 8 | on-board ES8311 codec + speaker |
 | Codec I2C SDA / SCL | 16 / 15    | ES8311 codec, addr 0x18            |
-| Codec PA enable    | 1           | class-D amplifier enable            |
+| Codec PA enable    | 1           | class-D amplifier enable (active-low) |
 
 - ESP32-S3 with PSRAM (`BOARD_HAS_PSRAM`).
 - Native panel resolution is 240x320 portrait; the firmware

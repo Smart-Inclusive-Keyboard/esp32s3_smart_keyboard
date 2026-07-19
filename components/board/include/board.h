@@ -100,6 +100,10 @@ typedef struct {
     uint8_t addr;       /* 7-bit codec I2C address (ES8311 = 0x18) */
     int     freq_hz;    /* I2C clock (codec accepts up to 400 kHz)  */
     int     pa_pin;     /* class-D PA enable pin, -1 if not wired   */
+    bool    pa_active_low; /* true = PA is enabled when pa_pin is
+                            * driven LOW (some boards, e.g. the
+                            * Freenove FNK0104A, wire the amplifier
+                            * enable active-low); false = active-high */
 } board_codec_t;
 
 /*

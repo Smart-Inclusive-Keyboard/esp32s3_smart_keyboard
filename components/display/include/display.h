@@ -58,6 +58,22 @@ void display_draw_char(int x, int y, char c, int scale,
 void display_draw_string(int x, int y, const char *s, int scale,
                          uint16_t fg, uint16_t bg, bool transparent);
 
+/* Draw an 8x8 ASCII glyph nearest-neighbour scaled to an arbitrary
+ * width x height box (in pixels). Unlike display_draw_char(), which
+ * only supports integer up-scaling, this can also SHRINK the glyph
+ * below its native 8x8 size, which is used to squeeze multi-letter
+ * key labels (Esc, Caps, Bksp, ...) into small cells on low-resolution
+ * panels. `cw` / `ch` must be >= 1. */
+void display_draw_char_wh(int x, int y, char c, int cw, int ch,
+                          uint16_t fg, uint16_t bg, bool transparent);
+
+/* Draw a null-terminated ASCII string whose glyphs are each rendered
+ * `cw` pixels wide and `ch` pixels tall (nearest-neighbour scaled from
+ * the 8x8 font), advancing by `cw` pixels per character. Lets a caller
+ * fit a short label into a fixed pixel width regardless of its length. */
+void display_draw_string_wh(int x, int y, const char *s, int cw, int ch,
+                            uint16_t fg, uint16_t bg, bool transparent);
+
 /* Higher-resolution 10x20 variants for single-letter key labels.
  * Glyphs are drawn at their native 10x20 size (no scaling); the
  * extra source-pixel density gives noticeably smoother edges than

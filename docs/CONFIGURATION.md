@@ -25,6 +25,14 @@ The Audio / Narrator menu is **hidden** unless `BOARD_HAS_PSRAM`
 and `BOARD_HAS_SPEAKER` are both set, because narration requires
 both to be useful.
 
+## Display
+
+`SK_DISPLAY_BACKLIGHT_PERCENT` (0..100) sets the panel backlight
+brightness applied at boot, as a percentage of full brightness.
+Boards with a controllable (LEDC PWM) backlight honour it; boards
+without one ignore it. The default is tuned per board: 80% for the
+Waveshare 3.5B and 50% for the Freenove FNK0104A.
+
 ## Gamepad transport
 
 The external gamepads are separate boards that stream their HID

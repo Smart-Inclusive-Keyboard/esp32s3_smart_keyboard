@@ -108,6 +108,27 @@ config BOARD_HAS_BATTERY
     default n
 
 #
+# Display options.
+#
+
+menu "Display"
+
+config SK_DISPLAY_BACKLIGHT_PERCENT
+    int "Backlight brightness (percent)"
+    range 0 100
+    default 80 if SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
+    default 50 if SK_BOARD_FREENOVE_FNK0104A
+    default 80
+    help
+        Panel backlight brightness applied at boot, as a percentage
+        of full brightness (0 = off, 100 = maximum). Boards with a
+        controllable backlight (LEDC PWM) honour this value; boards
+        without one ignore it. The default is tuned per board
+        (80% for the Waveshare 3.5B, 50% for the Freenove FNK0104A).
+
+endmenu  # Display
+
+#
 # External gamepads. Each gamepad is a separate board that streams
 # its HID report over a one-way (receive-only) UART link. Two
 # gamepads are supported; both feed the same on-screen keyboard.

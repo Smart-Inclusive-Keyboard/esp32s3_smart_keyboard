@@ -162,15 +162,25 @@ static void codec_bringup(const board_t *b)
         .glitch_ignore_cnt = 7,
         .flags = { .enable_internal_pullup = true },
     };
-    /* Reuse existing bus if some other component (touchscreen) created
-     * it first. */
-    if (i2c_master_get_bus_handle((i2c_port_num_t)b->codec.i2c_port,
-                                  &s_codec_bus) != ESP_OK) {
-        esp_err_t err = i2c_new_master_bus(&bus_cfg, &s_codec_bus);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "i2c bus create failed: %s", esp_err_to_name(err));
+    /* Create the I2C master bus for the codec. On boards where the
+     * codec shares its I2C bus with another peripheral (e.g. the
+     * Waveshare touchscreen), whichever component runs first creates
+     * the bus and the other re-acquires it. Try to create it first;
+     * if the port is already initialized, fall back to fetching the
+     * existing handle. Doing it in this order avoids the noisy
+     * "port has not been initialized" error that i2c_master_get_bus_handle()
+     * logs when the bus does not exist yet. */
+    esp_err_t err = i2c_new_master_bus(&bus_cfg, &s_codec_bus);
+    if (err == ESP_ERR_INVALID_STATE) {
+        /* Bus already created by another component -- reuse it. */
+        if (i2c_master_get_bus_handle((i2c_port_num_t)b->codec.i2c_port,
+                                      &s_codec_bus) != ESP_OK) {
+            ESP_LOGE(TAG, "i2c bus already in use but handle fetch failed");
             return;
         }
+    } else if (err != ESP_OK) {
+        ESP_LOGE(TAG, "i2c bus create failed: %s", esp_err_to_name(err));
+        return;
     }
 
     audio_codec_i2c_cfg_t i2c_cfg = {
@@ -193,7 +203,7 @@ static void codec_bringup(const board_t *b)
         .gpio_if     = s_codec_gpio,
         .codec_mode  = ESP_CODEC_DEV_WORK_MODE_DAC,
         .pa_pin      = b->codec.pa_pin,
-        .pa_reverted = false,
+        .pa_reverted = b->codec.pa_active_low,
         .use_mclk    = (b->i2s.mclk >= 0),
         .digital_mic = false,
         .invert_mclk = false,

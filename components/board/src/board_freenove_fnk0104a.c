@@ -88,13 +88,17 @@ const board_t g_board = {
     .codec = {
         /* ES8311 at 7-bit address 0x18 on its own I2C bus
          * (SDA = 16, SCL = 15). The class-D amplifier enable is
-         * a discrete MCU pin (GPIO 1). */
+         * a discrete MCU pin (GPIO 1) and is active-low on this
+         * board: the Freenove reference firmware holds AP_ENABLE
+         * LOW while audio plays, so the codec must drive it LOW to
+         * un-mute the speaker. */
         .i2c_port = 0,
         .sda      = 16,
         .scl      = 15,
         .addr     = 0x18,
         .freq_hz  = 400000,
         .pa_pin   = 1,
+        .pa_active_low = true,
     },
     .touch = {
         /* NonTouch variant: no touchscreen controller. */

@@ -102,7 +102,7 @@ void app_main(void)
     /* 2. Board + display. */
     board_init();
     display_init();
-    display_set_backlight(80);
+    display_set_backlight(CONFIG_SK_DISPLAY_BACKLIGHT_PERCENT);
 
     /* 3. Splash. */
     splash();

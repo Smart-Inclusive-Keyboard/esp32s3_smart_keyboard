@@ -164,6 +164,36 @@ void display_draw_string(int x, int y, const char *s, int scale,
     }
 }
 
+void display_draw_char_wh(int x, int y, char c, int cw, int ch,
+                          uint16_t fg, uint16_t bg, bool transparent)
+{
+    if (cw < 1) cw = 1;
+    if (ch < 1) ch = 1;
+    for (int py = 0; py < ch; ++py) {
+        /* Nearest-neighbour map the target row back onto one of the
+         * 8 source rows; the same for columns below. */
+        int row = py * FONT_BASE_H / ch;
+        for (int px = 0; px < cw; ++px) {
+            int col = px * FONT_BASE_W / cw;
+            if (font_pixel_8x8(c, col, row)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_string_wh(int x, int y, const char *s, int cw, int ch,
+                            uint16_t fg, uint16_t bg, bool transparent)
+{
+    if (!s) return;
+    for (int i = 0; s[i] != '\0'; ++i) {
+        display_draw_char_wh(x + i * cw, y, s[i], cw, ch,
+                             fg, bg, transparent);
+    }
+}
+
 void display_draw_char_10x20(int x, int y, char c,
                              uint16_t fg, uint16_t bg, bool transparent)
 {

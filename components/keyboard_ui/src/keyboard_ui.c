@@ -453,9 +453,31 @@ static void draw_keyboard(const theme_t *th)
             if (fit_scale < 1) fit_scale = 1;
             int scale = fit_scale < max_scale ? fit_scale : max_scale;
             int gw = 8 * scale;
-            int tx = x + (cell - lbl_len * gw) / 2;
-            int ty = y + (cell - gw) / 2;
-            display_draw_string(tx, ty, lbl, scale, fg, bg, true);
+
+            /* On small cells the integer-scaled 8x8 font cannot go
+             * below 8 px, so a two- or three-letter label would fill
+             * (or overflow) the whole cell. When even scale 1 leaves
+             * no comfortable margin, fall back to a horizontally
+             * condensed glyph (sub-8-px wide, drawn via the
+             * nearest-neighbour scaler) so the label shrinks to a
+             * clearly smaller font that fits with a margin. */
+            int want_w = cell - 4;   /* target width, ~2 px margin  */
+            int max_w  = cell - 2;   /* hard upper bound            */
+            if (fit_len * gw <= want_w) {
+                int tx = x + (cell - lbl_len * gw) / 2;
+                int ty = y + (cell - gw) / 2;
+                display_draw_string(tx, ty, lbl, scale, fg, bg, true);
+            } else {
+                int cw = want_w / fit_len;
+                if (cw < 4) cw = 4;                 /* legibility floor */
+                if (cw * fit_len > max_w) cw = max_w / fit_len;
+                if (cw < 1) cw = 1;
+                int ch = 8;
+                if (ch > cell - 2) ch = cell - 2;
+                int tx = x + (cell - lbl_len * cw) / 2;
+                int ty = y + (cell - ch) / 2;
+                display_draw_string_wh(tx, ty, lbl, cw, ch, fg, bg, true);
+            }
         }
     }
 }
