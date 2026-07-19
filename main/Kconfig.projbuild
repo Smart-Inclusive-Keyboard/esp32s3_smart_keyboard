@@ -86,9 +86,11 @@ config BOARD_HAS_BATTERY
     default n
 
 #
-# External gamepad. The gamepad is a separate board that streams
-# its HID report over a one-way (receive-only) UART link. Set the
-# UART port, RX pin and baud rate plus the analog-stick dead-zone.
+# External gamepads. Each gamepad is a separate board that streams
+# its HID report over a one-way (receive-only) UART link. Two
+# gamepads are supported; both feed the same on-screen keyboard.
+# Set the UART port, RX pin and baud rate for each, plus the shared
+# analog-stick dead-zone.
 #
 
 menu "Gamepad"
@@ -101,28 +103,54 @@ config SK_GAMEPAD_AXIS_DEADZONE
         Analog-stick dead-zone applied to the signed 16-bit axes
         carried in the gamepad HID report. Stick deflection within
         +/- this value is treated as centred so the on-screen
-        cursor / selection does not drift.
+        cursor / selection does not drift. Shared by both gamepads.
 
-config SK_GAMEPAD_UART_PORT
-    int "UART port number"
+config SK_GAMEPAD1_UART_PORT
+    int "Gamepad 1 UART port number"
     default 1
     range 1 2
     help
-        UART peripheral used to receive gamepad HID reports. UART0
-        is normally the console, so pick UART1 or UART2.
+        UART peripheral used to receive the first gamepad's HID
+        reports. UART0 is normally the console, so pick UART1 or
+        UART2. Must differ from gamepad 2's UART port.
 
-config SK_GAMEPAD_UART_RX_GPIO
-    int "UART RX GPIO"
-    default 11
+config SK_GAMEPAD1_UART_RX_GPIO
+    int "Gamepad 1 UART RX GPIO"
+    default 21
     help
-        GPIO the gamepad's TX line is wired to. The interface is
-        receive-only; no TX / RTS / CTS pin is driven.
+        GPIO the first gamepad's TX line is wired to. The interface
+        is receive-only; no TX / RTS / CTS pin is driven. Set to -1
+        to disable the first gamepad.
 
-config SK_GAMEPAD_UART_BAUD
-    int "UART baud rate"
+config SK_GAMEPAD1_UART_BAUD
+    int "Gamepad 1 UART baud rate"
     default 115200
     help
-        Baud rate of the 8-N-1 UART link. Must match the remote
+        Baud rate of the 8-N-1 UART link. Must match the first
+        gamepad's transmit baud rate.
+
+config SK_GAMEPAD2_UART_PORT
+    int "Gamepad 2 UART port number"
+    default 2
+    range 1 2
+    help
+        UART peripheral used to receive the second gamepad's HID
+        reports. UART0 is normally the console, so pick UART1 or
+        UART2. Must differ from gamepad 1's UART port.
+
+config SK_GAMEPAD2_UART_RX_GPIO
+    int "Gamepad 2 UART RX GPIO"
+    default 38
+    help
+        GPIO the second gamepad's TX line is wired to. The interface
+        is receive-only; no TX / RTS / CTS pin is driven. Set to -1
+        to disable the second gamepad.
+
+config SK_GAMEPAD2_UART_BAUD
+    int "Gamepad 2 UART baud rate"
+    default 115200
+    help
+        Baud rate of the 8-N-1 UART link. Must match the second
         gamepad's transmit baud rate.
 
 endmenu  # Gamepad
