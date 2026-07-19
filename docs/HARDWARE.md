@@ -2,7 +2,42 @@
 
 ## Supported boards
 
-### Waveshare ESP32-S3-Touch-LCD-3.5B (default)
+### Freenove FNK0104A (2.8" ILI9341, NonTouch) (default)
+
+| Function           | GPIO        | Notes                              |
+| ------------------ | ----------- | ---------------------------------- |
+| LCD SPI CS         | 10          | ILI9341 4-wire SPI panel           |
+| LCD SPI SCK        | 12          |                                    |
+| LCD SPI MOSI (D0)  | 11          | data line written to the panel     |
+| LCD SPI MISO (D1)  | 13          | not required (panel is write-only) |
+| LCD DC             | 46          | data/command select                |
+| LCD RST            | -1          | tied to module RST; software reset used |
+| LCD BL             | 45          | active HIGH, LEDC PWM              |
+| Gamepad 1 UART RX  | 2           | receive-only, 8-N-1, 115200 baud   |
+| Gamepad 2 UART RX  | 3           | receive-only, 8-N-1, 115200 baud   |
+| I2S MCLK / BCLK / LRCK / DOUT | 17 / 18 / 21 / 15 | on-board ES8311 codec + speaker |
+| Codec I2C SDA / SCL | 38 / 39    | ES8311 codec, addr 0x18            |
+| Codec PA enable    | 1           | class-D amplifier enable            |
+
+- ESP32-S3 with PSRAM (`BOARD_HAS_PSRAM`).
+- Native panel resolution is 240x320 portrait; the firmware
+  presents it as 320x240 landscape. Unlike the AXS15231B panel,
+  the ILI9341 honours the MADCTL row/column-exchange bit, so the
+  landscape rotation is done in hardware (no software rotation in
+  the flush path) -- `board_t::display.swap_xy` stays `false`.
+- No touchscreen (NonTouch variant); `BOARD_HAS_TOUCH` is not
+  selected.
+- On-board I2S speaker via ES8311 codec. The board selects
+  `BOARD_HAS_SPEAKER` so the narrator is compiled in by default;
+  the I2S / codec pins above are hard-coded in
+  `components/board/src/board_freenove_fnk0104a.c`.
+- The two gamepads are wired to fixed receive-only UART RX pins,
+  GPIO 2 (gamepad 1) and GPIO 3 (gamepad 2). These pins are
+  hard-coded in the board file (the `CONFIG_SK_GAMEPAD*_UART_RX_GPIO`
+  options are ignored for this board); the UART port and baud
+  still come from menuconfig.
+
+### Waveshare ESP32-S3-Touch-LCD-3.5B
 
 | Function           | GPIO       | Notes                              |
 | ------------------ | ---------- | ---------------------------------- |

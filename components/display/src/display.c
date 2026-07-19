@@ -73,6 +73,7 @@ void display_register_backend(uint16_t *fb, int w, int h,
 /* ----- Backend selection ----- */
 
 void display_axs15231b_init(void);  /* implemented in display_axs15231b.c */
+void display_ili9341_init(void);    /* implemented in display_ili9341.c */
 
 void display_init(void)
 {
@@ -84,6 +85,13 @@ void display_init(void)
         display_axs15231b_init();
 #else
         ESP_LOGE(TAG, "AXS15231B selected but driver not built in");
+#endif
+        break;
+    case BOARD_DISPLAY_ILI9341:
+#if CONFIG_BOARD_HAS_DISPLAY_ILI9341
+        display_ili9341_init();
+#else
+        ESP_LOGE(TAG, "ILI9341 selected but driver not built in");
 #endif
         break;
     case BOARD_DISPLAY_NONE:
