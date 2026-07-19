@@ -551,12 +551,13 @@ static void draw_keyboard(const theme_t *th)
                 int bot_len = lbl_len - split;
                 int wide = top_len > bot_len ? top_len : bot_len;
                 if (bot_len >= 1 && wide * 8 <= avail_w && avail_h >= 16) {
-                    char top[16], bot[16];
-                    if (top_len > (int)sizeof(top) - 1) {
-                        top_len = sizeof(top) - 1;
+                    enum { LABEL_LINE_CAP = 15 };  /* buffer size - 1 */
+                    char top[LABEL_LINE_CAP + 1], bot[LABEL_LINE_CAP + 1];
+                    if (top_len > LABEL_LINE_CAP) {
+                        top_len = LABEL_LINE_CAP;
                     }
-                    if (bot_len > (int)sizeof(bot) - 1) {
-                        bot_len = sizeof(bot) - 1;
+                    if (bot_len > LABEL_LINE_CAP) {
+                        bot_len = LABEL_LINE_CAP;
                     }
                     memcpy(top, lbl, top_len);
                     top[top_len] = '\0';
