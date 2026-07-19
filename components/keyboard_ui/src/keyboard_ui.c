@@ -13,9 +13,10 @@
  * (cell = min(width/cols, avail_h/rows)). Any leftover space
  * after laying out the cells becomes equal margins on the
  * sides -- typically vertical, since the panel is wider than
- * tall. Single-character labels render with the higher-density
- * 10x20 font; multi-character labels (F1..F12, Caps, Bksp,
- * Esc, ...) fall back to integer-scaled 8x8 glyphs.
+ * tall. On the larger 480x320 panels, single-character labels
+ * render with the higher-density 10x20 font; on smaller 320x240
+ * panels and for multi-character labels (F1..F12, Caps, Bksp,
+ * Esc, ...) they fall back to integer-scaled 8x8 glyphs.
  *
  * Drawing happens on a FreeRTOS task driven by a redraw queue
  * so the input handlers can fire keyboard_ui_request_redraw()
@@ -335,6 +336,16 @@ static bool grid_metrics(const kb_layout_t *l,
     return true;
 }
 
+/* The 10x20 label font is tuned for the larger 480x320 panels.
+ * On the smaller 320x240 boards (e.g. Freenove FNK0104A) a native
+ * 20px-tall glyph crowds the tiny cells, so fall back to the
+ * integer-scaled 8x8 font there. Gate on the panel being at least
+ * 480x320. */
+static bool ui_use_hires_labels(void)
+{
+    return display_width() >= 480 && display_height() >= 320;
+}
+
 /* Upper-case a Cyrillic codepoint for Shift rendering. Covers the
  * Ukrainian alphabet: the main a..ya block plus Ye / I / Yi which
  * sit outside the regular 0x20 case offset. */
@@ -396,7 +407,7 @@ static void draw_keyboard(const theme_t *th)
              * directly via the 10x20 font, upper-cased while Shift is
              * held. Falls through to the ASCII transliteration label
              * when the cell is too small for the 10x20 glyph. */
-            if (k->glyph &&
+            if (k->glyph && ui_use_hires_labels() &&
                 cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
                 uint32_t cp = shift_on ? cyr_upper(k->glyph) : k->glyph;
                 int tx = x + (cell - FONT10X20_W) / 2;
@@ -416,7 +427,7 @@ static void draw_keyboard(const theme_t *th)
              * look smooth instead of chunky. Multi-character
              * labels (Esc, Caps, Bksp, F1..F12) stay on the 8x8
              * font with the same fit-to-cell logic as before. */
-            if (lbl_len == 1 &&
+            if (lbl_len == 1 && ui_use_hires_labels() &&
                 cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
                 int tx = x + (cell - FONT10X20_W) / 2;
                 int ty = y + (cell - FONT10X20_H) / 2;

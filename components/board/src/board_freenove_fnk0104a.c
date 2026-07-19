@@ -20,10 +20,10 @@
  *   LCD BL  :  45 (active HIGH, LEDC PWM)
  *
  *   On-board ES8311 audio codec + amplifier + speaker:
- *       MCLK = 17, BCLK = 18, LRCK (WS) = 21, DOUT = 15
+ *       MCLK = 4, BCLK = 5, LRCK (WS) = 7, DOUT = 8
  *       (ESP32-S3 -> codec serial data; the codec's mic DIN on
- *        GPIO 16 is unused by the narrator output path).
- *       Codec I2C: SDA = 38, SCL = 39, 7-bit address 0x18.
+ *        GPIO 6 is unused by the narrator output path).
+ *       Codec I2C: SDA = 16, SCL = 15, 7-bit address 0x18.
  *       The class-D amplifier enable ("AP_ENABLE") is on GPIO 1.
  *
  *   External gamepad UARTs: two companion gamepad boards stream
@@ -79,19 +79,19 @@ const board_t g_board = {
     },
     .i2s = {
         /* On-board ES8311 codec wiring -- fixed by the PCB. */
-        .mclk = 17,
-        .bclk = 18,
-        .lrck = 21,
-        .dout = 15,
+        .mclk = 4,
+        .bclk = 5,
+        .lrck = 7,
+        .dout = 8,
         .port = 0,
     },
     .codec = {
         /* ES8311 at 7-bit address 0x18 on its own I2C bus
-         * (SDA = 38, SCL = 39). The class-D amplifier enable is
+         * (SDA = 16, SCL = 15). The class-D amplifier enable is
          * a discrete MCU pin (GPIO 1). */
         .i2c_port = 0,
-        .sda      = 38,
-        .scl      = 39,
+        .sda      = 16,
+        .scl      = 15,
         .addr     = 0x18,
         .freq_hz  = 400000,
         .pa_pin   = 1,
@@ -118,16 +118,16 @@ const board_t g_board = {
  * UART RX pins and the display SPI bus / audio I2S bus / codec
  * I2C bus. The pin sets owned by each subsystem on this board:
  *   display : { 10, 11, 12, 13, 45, 46 }
- *   audio   : { 15, 16, 17, 18, 21 } (I2S) + { 1 } (PA enable)
- *   codec   : { 38, 39 } (I2C)
+ *   audio   : { 4, 5, 6, 7, 8 } (I2S) + { 1 } (PA enable)
+ *   codec   : { 15, 16 } (I2C)
  * The fixed gamepad RX pins (2, 3) fall outside all of these. */
 #include <assert.h>
 #define SK_FNK_PIN_CONFLICTS_DISPLAY(p) ( \
     (p) == 10 || (p) == 11 || (p) == 12 || (p) == 13 || \
     (p) == 45 || (p) == 46)
 #define SK_FNK_PIN_CONFLICTS_AUDIO(p) ( \
-    (p) == 1  || (p) == 15 || (p) == 16 || (p) == 17 || \
-    (p) == 18 || (p) == 21 || (p) == 38 || (p) == 39)
+    (p) == 1  || (p) == 4  || (p) == 5  || (p) == 6  || \
+    (p) == 7  || (p) == 8  || (p) == 15 || (p) == 16)
 #define SK_FNK_GAMEPAD_PIN_OK(p) \
     (!SK_FNK_PIN_CONFLICTS_DISPLAY(p) && \
      !SK_FNK_PIN_CONFLICTS_AUDIO(p))

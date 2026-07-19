@@ -30,8 +30,8 @@ config SK_BOARD_FREENOVE_FNK0104A
         Freenove ESP32-S3 2.8" display board (FNK0104A) with a
         240x320 ILI9341 SPI panel exposed as 320x240 landscape.
         No touchscreen. Includes an on-board I2S speaker driven by
-        an ES8311 codec (MCLK=17, BCLK=18, LRCK=21, DOUT=15;
-        codec I2C SDA=38, SCL=39, PA enable=1) which is wired up
+        an ES8311 codec (MCLK=4, BCLK=5, LRCK=7, DOUT=8;
+        codec I2C SDA=16, SCL=15, PA enable=1) which is wired up
         automatically for the narrator. The two external gamepads
         stream HID reports into receive-only UARTs on GPIO 2 and
         GPIO 3.
