@@ -35,10 +35,11 @@ extern "C" {
 #define FONT10X20_H 20
 
 /* Native dimensions of the smaller UI font used for single-glyph
- * non-ASCII key labels on low-resolution 320x240 panels, where the
- * 10x20 glyph does not fit a key cell. Only the Cyrillic glyphs are
- * provided (see font_glyph_12x16_cp); ASCII labels keep the 8x8
- * font on those panels. */
+ * key labels on low-resolution 320x240 panels, where the 10x20
+ * glyph does not fit a key cell. Both ASCII and the Cyrillic
+ * glyphs are provided (see font_glyph_12x16_cp), so Latin and
+ * Cyrillic single-letter labels render at the same crisp native
+ * size on those panels. */
 #define FONT12X16_W 12
 #define FONT12X16_H 16
 
@@ -61,12 +62,13 @@ const uint8_t *font_glyph_10x20_cp(uint32_t cp);
 
 /* Returns the 32 raw bytes (16 rows of 2 bytes, MSB = leftmost
  * pixel, bit 7 of byte0 = col 0, bit 4 of byte1 = col 11) for the
- * 12x16 glyph of the given Unicode codepoint. Only the embedded
+ * 12x16 glyph of the given Unicode codepoint. ASCII codepoints
+ * (0x20..0x7E) fall through to the base table; the embedded
  * Cyrillic glyphs (Ukrainian alphabet, upper + lower case) are
- * covered; any other codepoint returns the '?' glyph. Used on
+ * also covered; any other codepoint returns the '?' glyph. Used on
  * low-resolution panels as a crisper alternative to downscaling
- * the 10x20 Cyrillic glyphs. The returned pointer is valid for the
- * lifetime of the process. */
+ * the 10x20 glyphs. The returned pointer is valid for the lifetime
+ * of the process. */
 const uint8_t *font_glyph_12x16_cp(uint32_t cp);
 
 /* True if bit (col, row) of the given 32-byte 12x16 glyph is set.

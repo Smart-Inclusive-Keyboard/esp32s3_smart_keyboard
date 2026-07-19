@@ -336,16 +336,6 @@ static bool grid_metrics(const kb_layout_t *l,
     return true;
 }
 
-/* The 10x20 label font is tuned for the larger 480x320 panels.
- * On the smaller 320x240 boards (e.g. Freenove FNK0104A) a native
- * 20px-tall glyph crowds the tiny cells, so fall back to the
- * integer-scaled 8x8 font there. Gate on the panel being at least
- * 480x320. */
-static bool ui_use_hires_labels(void)
-{
-    return display_width() >= 480 && display_height() >= 320;
-}
-
 /* Upper-case a Cyrillic codepoint for Shift rendering. Covers the
  * Ukrainian alphabet: the main a..ya block plus Ye / I / Yi which
  * sit outside the regular 0x20 case offset. */
@@ -447,16 +437,41 @@ static void draw_keyboard(const theme_t *th)
 
             int lbl_len = (int)strlen(lbl);
 
-            /* Single-glyph labels get the finer 10x20 font so the
-             * letters/digits/punctuation that dominate the grid
-             * look smooth instead of chunky. Multi-character
-             * labels (Esc, Caps, Bksp, F1..F12) stay on the 8x8
-             * font with the same fit-to-cell logic as before. */
-            if (lbl_len == 1 && ui_use_hires_labels() &&
-                cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
-                int tx = x + (cell - FONT10X20_W) / 2;
-                int ty = y + (cell - FONT10X20_H) / 2;
-                display_draw_char_10x20(tx, ty, lbl[0], fg, bg, true);
+            /* Single-character labels (the letters, digits and
+             * punctuation that dominate the grid) render through the
+             * same native-font selection as the Cyrillic glyphs above
+             * so Latin and Cyrillic look identical:
+             *   - large cells / hi-res panels: the 10x20 font
+             *   - low-res 320x240 panels (~18px cells): the smaller
+             *     12x16 font, kept crisp instead of downscaled
+             *   - tiny cells: the 12x16 font scaled down
+             * Multi-character labels (Esc, Caps, Bksp, F1..F12) stay
+             * on the 8x8 font with the fit-to-cell logic below, which
+             * keeps those 2-3 letter labels readable. */
+            if (lbl_len == 1) {
+                uint32_t cp = (uint32_t)(unsigned char)lbl[0];
+                if (cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
+                    int tx = x + (cell - FONT10X20_W) / 2;
+                    int ty = y + (cell - FONT10X20_H) / 2;
+                    display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                } else if (cell >= FONT12X16_W + 2 && cell >= FONT12X16_H + 2) {
+                    int tx = x + (cell - FONT12X16_W) / 2;
+                    int ty = y + (cell - FONT12X16_H) / 2;
+                    display_draw_glyph_12x16_cp(tx, ty, cp, fg, bg, true);
+                } else {
+                    int gh = cell - 4;
+                    int gw = gh * FONT12X16_W / FONT12X16_H;
+                    if (gw > cell - 2) {
+                        gw = cell - 2;
+                        gh = gw * FONT12X16_H / FONT12X16_W;
+                    }
+                    if (gw < 1) gw = 1;
+                    if (gh < 1) gh = 1;
+                    int tx = x + (cell - gw) / 2;
+                    int ty = y + (cell - gh) / 2;
+                    display_draw_glyph_12x16_cp_wh(tx, ty, cp, gw, gh,
+                                                   fg, bg, true);
+                }
                 continue;
             }
 
