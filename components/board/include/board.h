@@ -34,16 +34,33 @@ extern "C" {
 typedef enum {
     BOARD_DISPLAY_NONE = 0,
     BOARD_DISPLAY_AXS15231B,
+    BOARD_DISPLAY_ILI9341,
 } board_display_type_t;
 
 typedef struct {
-    /* QSPI display pins (AXS15231B). All -1 when display absent. */
+    /* Display bus pins.
+     *
+     * The AXS15231B backend uses these as a 4-line QSPI bus:
+     *   cs, sck, d0, d1, d2, d3.
+     *
+     * The ILI9341 backend uses a plain 4-wire SPI bus and reuses
+     * the same fields:
+     *   cs   = chip-select
+     *   sck  = clock (SCLK)
+     *   d0   = MOSI (SDA), the only data line written
+     *   d1   = MISO, -1 when not wired (the panel is write-only)
+     *   d2, d3 = unused, -1
+     *   dc   = data/command select line (SPI displays only)
+     *
+     * All -1 when the display is absent.
+     */
     int cs;
     int sck;
     int d0;
     int d1;
     int d2;
     int d3;
+    int dc;            /* data/command line (SPI panels), -1 if N/A */
     int rst;
     int te;            /* tearing-effect input, -1 if unused      */
     int bl;            /* backlight enable, -1 if always-on       */
