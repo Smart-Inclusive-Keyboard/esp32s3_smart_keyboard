@@ -271,7 +271,8 @@ static void flush_bbox(int x0, int y0, int x1, int y1)
         const uint16_t *src = s_fb + (size_t)y * s_w + x0;
         for (int i = 0; i < bw; ++i) {
             uint16_t p = src[i];
-            /* framebuffer little-endian -> panel big-endian */
+            /* RGB565 byte-swap: framebuffer little-endian -> panel
+             * big-endian */
             s_row_buf[i] = (uint16_t)((p << 8) | (p >> 8));
         }
         int cmd = (y == y0) ? ILI_CMD_RAMWR : -1;
