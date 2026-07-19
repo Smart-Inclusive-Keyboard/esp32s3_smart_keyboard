@@ -404,30 +404,38 @@ static void draw_keyboard(const theme_t *th)
 
             /* Non-ASCII single-glyph keys (e.g. the Ukrainian
              * alphabet) carry a Unicode codepoint. Always render the
-             * real glyph (upper-cased while Shift is held) from the
-             * 10x20 font's embedded Cyrillic set: at native size when
-             * the cell is large enough, otherwise nearest-neighbour
-             * scaled down (keeping the 10:20 aspect ratio) so small
-             * 320x240 panels still show Cyrillic letters instead of
-             * the ASCII transliteration fallback. */
+             * real glyph (upper-cased while Shift is held) at native
+             * size, picking the font that best fits the key cell:
+             *   - large cells / hi-res panels: the 10x20 Cyrillic font
+             *   - low-res 320x240 panels (~18px cells): the smaller
+             *     12x16 Cyrillic font, so the glyph stays crisp
+             *     instead of being downscaled from 10x20
+             *   - tiny cells: the 12x16 font scaled down (a milder,
+             *     less lossy shrink than from 10x20)
+             * so small panels show real Cyrillic letters, not the
+             * ASCII transliteration fallback. */
             if (k->glyph) {
                 uint32_t cp = shift_on ? cyr_upper(k->glyph) : k->glyph;
                 if (cell >= FONT10X20_W + 2 && cell >= FONT10X20_H + 2) {
                     int tx = x + (cell - FONT10X20_W) / 2;
                     int ty = y + (cell - FONT10X20_H) / 2;
                     display_draw_glyph_10x20_cp(tx, ty, cp, fg, bg, true);
+                } else if (cell >= FONT12X16_W + 2 && cell >= FONT12X16_H + 2) {
+                    int tx = x + (cell - FONT12X16_W) / 2;
+                    int ty = y + (cell - FONT12X16_H) / 2;
+                    display_draw_glyph_12x16_cp(tx, ty, cp, fg, bg, true);
                 } else {
                     int gh = cell - 4;
-                    int gw = gh * FONT10X20_W / FONT10X20_H;
+                    int gw = gh * FONT12X16_W / FONT12X16_H;
                     if (gw > cell - 2) {
                         gw = cell - 2;
-                        gh = gw * FONT10X20_H / FONT10X20_W;
+                        gh = gw * FONT12X16_H / FONT12X16_W;
                     }
                     if (gw < 1) gw = 1;
                     if (gh < 1) gh = 1;
                     int tx = x + (cell - gw) / 2;
                     int ty = y + (cell - gh) / 2;
-                    display_draw_glyph_10x20_cp_wh(tx, ty, cp, gw, gh,
+                    display_draw_glyph_12x16_cp_wh(tx, ty, cp, gw, gh,
                                                    fg, bg, true);
                 }
                 continue;

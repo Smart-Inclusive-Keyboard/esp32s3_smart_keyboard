@@ -9,6 +9,7 @@
 #include "font8x8_basic.h"
 #include "font10x20_basic.h"
 #include "font10x20_cyrillic.h"
+#include "font12x16_cyrillic.h"
 
 static const uint8_t s_fallback[8] = {
     /* '?' if out of range */
@@ -53,4 +54,22 @@ const uint8_t *font_glyph_10x20_cp(uint32_t cp)
         }
     }
     return s_fallback_10x20;
+}
+
+/* '?' fallback rendered into the 12x16 cell (DejaVu Sans Mono). */
+static const uint8_t s_fallback_12x16[32] = {
+    0x00, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x11, 0x80,
+    0x01, 0x80, 0x01, 0x80, 0x03, 0x00, 0x02, 0x00,
+    0x06, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00,
+    0x04, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+
+const uint8_t *font_glyph_12x16_cp(uint32_t cp)
+{
+    for (int i = 0; i < FONT12X16_CYRILLIC_COUNT; ++i) {
+        if (font12x16_cyrillic_cp[i] == cp) {
+            return font12x16_cyrillic[i];
+        }
+    }
+    return s_fallback_12x16;
 }

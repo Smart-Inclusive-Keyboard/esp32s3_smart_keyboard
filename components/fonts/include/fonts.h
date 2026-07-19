@@ -29,6 +29,14 @@ extern "C" {
 #define FONT10X20_W 10
 #define FONT10X20_H 20
 
+/* Native dimensions of the smaller UI font used for single-glyph
+ * non-ASCII key labels on low-resolution 320x240 panels, where the
+ * 10x20 glyph does not fit a key cell. Only the Cyrillic glyphs are
+ * provided (see font_glyph_12x16_cp); ASCII labels keep the 8x8
+ * font on those panels. */
+#define FONT12X16_W 12
+#define FONT12X16_H 16
+
 /* Returns the 8 row bytes for ASCII character c, or the glyph for
  * '?' if c is outside 0x20..0x7E. The returned pointer is valid
  * for the lifetime of the process. */
@@ -45,6 +53,29 @@ const uint8_t *font_glyph_10x20(char c);
  * upper + lower case). ASCII codepoints (0x20..0x7E) fall through
  * to the base table; unknown codepoints return the '?' glyph. */
 const uint8_t *font_glyph_10x20_cp(uint32_t cp);
+
+/* Returns the 32 raw bytes (16 rows of 2 bytes, MSB = leftmost
+ * pixel, bit 7 of byte0 = col 0, bit 4 of byte1 = col 11) for the
+ * 12x16 glyph of the given Unicode codepoint. Only the embedded
+ * Cyrillic glyphs (Ukrainian alphabet, upper + lower case) are
+ * covered; any other codepoint returns the '?' glyph. Used on
+ * low-resolution panels as a crisper alternative to downscaling
+ * the 10x20 Cyrillic glyphs. The returned pointer is valid for the
+ * lifetime of the process. */
+const uint8_t *font_glyph_12x16_cp(uint32_t cp);
+
+/* True if bit (col, row) of the given 32-byte 12x16 glyph is set.
+ * col in [0, 11], row in [0, 15]. Use with font_glyph_12x16_cp()
+ * to avoid re-resolving the glyph per pixel. */
+static inline bool font_pixel_in_12x16(const uint8_t *g, int col, int row)
+{
+    if (!g || col < 0 || col >= FONT12X16_W ||
+        row < 0 || row >= FONT12X16_H) {
+        return false;
+    }
+    uint16_t row_bits = ((uint16_t)g[row * 2] << 8) | g[row * 2 + 1];
+    return (row_bits >> (15 - col)) & 1;
+}
 
 /* True if bit (col, row) of the given 40-byte 10x20 glyph is set.
  * col in [0, 9], row in [0, 19]. Use with font_glyph_10x20_cp()
