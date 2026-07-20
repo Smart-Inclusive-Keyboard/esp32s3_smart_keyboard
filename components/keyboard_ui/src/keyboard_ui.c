@@ -16,11 +16,7 @@
  * tall. On the larger 480x320 panels, single-character labels
  * render with the higher-density 10x20 font; on smaller 320x240
  * panels and for multi-character labels (F1..F12, Caps, Bksp,
- * Esc, ...) they fall back to integer-scaled 8x8 glyphs. When a
- * multi-character label is too wide to stay legible on a single
- * line (e.g. Ctrl / Shift / Alt on a 320x240 cell), it wraps onto
- * two stacked lines of full-size 8x8 glyphs rather than being
- * condensed into an unreadable blur.
+ * Esc, ...) they fall back to integer-scaled 8x8 glyphs.
  *
  * Drawing happens on a FreeRTOS task driven by a redraw queue
  * so the input handlers can fire keyboard_ui_request_redraw()
@@ -51,12 +47,6 @@ static const char *TAG = "kb_ui";
 
 #define STATUS_BAR_H 14
 #define NVS_NAMESPACE "sk_ui"
-
-/* Minimum per-glyph width (px) for a horizontally condensed
- * multi-character key label. Below this the nearest-neighbour
- * scaler drops too many columns and the label becomes unreadable,
- * so draw_keyboard() wraps onto two lines instead. */
-#define LABEL_MIN_CW 6
 
 typedef struct {
     int  sel_row;
@@ -485,99 +475,45 @@ static void draw_keyboard(const theme_t *th)
                 continue;
             }
 
-            /* Render a multi-character label as legibly as possible,
-             * trying these layouts in order of preference:
+            /* Shrink multi-letter labels so they fit the cell:
+             * pick the largest 8x8 scale (capped by max_scale) that
+             * leaves a small horizontal margin. Single-glyph keys
+             * therefore stay big, while "Caps" / "Bksp" / "PgUp"
+             * drop down to a smaller, fully readable size.
              *
-             *   1. a single line of native 8x8 glyphs, scaled up
-             *      while it fits the cell (roomy panels);
-             *   2. a single line horizontally condensed only as far
-             *      as the per-glyph legibility floor allows;
-             *   3. on small cells where neither single-line layout is
-             *      legible, wrap onto two stacked lines of native 8x8
-             *      glyphs, so every letter keeps its full 8 px width
-             *      instead of being squished into an unreadable blur;
-             *   4. as a last resort, a hard-condensed single line.
-             *
-             * Function keys (F1..F12) share a 3-char reference width
-             * so F1..F9 pick the same layout as F10..F12, and wrap as
-             * "F" over the number, keeping the whole row uniform. */
+             * Function keys (F1..F12) all use the same reference
+             * width of 3 chars so that F1..F9 render at the same
+             * scale as F10..F12 -- the row looks uniform instead
+             * of having two visually distinct tiers. */
             int fit_len = lbl_len;
             if (k->special == KB_KEY_SPECIAL_FN && fit_len < 3) {
                 fit_len = 3;
             }
+            int fit_scale = (cell - 2) / (fit_len * 8);
+            if (fit_scale < 1) fit_scale = 1;
+            int scale = fit_scale < max_scale ? fit_scale : max_scale;
+            int gw = 8 * scale;
 
-            int avail_w = cell - 2;   /* usable width, ~1 px margin  */
-            int avail_h = cell - 2;   /* usable height               */
-
-            /* 1. Single line: largest integer scale that fits both
-             *    axes (bounded by max_scale). */
-            int line_scale = 0;
-            for (int s = max_scale; s >= 1; --s) {
-                if (fit_len * 8 * s <= avail_w && 8 * s <= avail_h) {
-                    line_scale = s;
-                    break;
-                }
-            }
-            if (line_scale >= 1) {
-                int gw = 8 * line_scale;
+            /* On small cells the integer-scaled 8x8 font cannot go
+             * below 8 px, so a two- or three-letter label would fill
+             * (or overflow) the whole cell. When even scale 1 leaves
+             * no comfortable margin, fall back to a horizontally
+             * condensed glyph (sub-8-px wide, drawn via the
+             * nearest-neighbour scaler) so the label shrinks to a
+             * clearly smaller font that fits with a margin. */
+            int want_w = cell - 4;   /* target width, ~2 px margin  */
+            int max_w  = cell - 2;   /* hard upper bound            */
+            if (fit_len * gw <= want_w) {
                 int tx = x + (cell - lbl_len * gw) / 2;
                 int ty = y + (cell - gw) / 2;
-                display_draw_string(tx, ty, lbl, line_scale, fg, bg, true);
-                continue;
-            }
-
-            /* 2. Single line condensed horizontally, but only while
-             *    every glyph stays at or above LABEL_MIN_CW pixels
-             *    wide -- below that the nearest-neighbour scaler drops
-             *    too many columns and the label turns to mush. */
-            {
-                int cw = avail_w / fit_len;
-                if (cw > 8) cw = 8;
-                if (cw >= LABEL_MIN_CW && avail_h >= 8) {
-                    int tx = x + (cell - lbl_len * cw) / 2;
-                    int ty = y + (cell - 8) / 2;
-                    display_draw_string_wh(tx, ty, lbl, cw, 8, fg, bg, true);
-                    continue;
-                }
-            }
-
-            /* 3. Two stacked lines of native 8x8 glyphs. Function
-             *    keys break after the leading 'F'; other labels split
-             *    as evenly as possible with the wider half on top. */
-            {
-                int split = (k->special == KB_KEY_SPECIAL_FN)
-                            ? 1 : (lbl_len + 1) / 2;
-                int top_len = split;
-                int bot_len = lbl_len - split;
-                int wide = top_len > bot_len ? top_len : bot_len;
-                if (bot_len >= 1 && wide * 8 <= avail_w && avail_h >= 16) {
-                    enum { LABEL_LINE_CAP = 15 };  /* buffer size - 1 */
-                    char top[LABEL_LINE_CAP + 1], bot[LABEL_LINE_CAP + 1];
-                    if (top_len > LABEL_LINE_CAP) {
-                        top_len = LABEL_LINE_CAP;
-                    }
-                    if (bot_len > LABEL_LINE_CAP) {
-                        bot_len = LABEL_LINE_CAP;
-                    }
-                    memcpy(top, lbl, top_len);
-                    top[top_len] = '\0';
-                    memcpy(bot, lbl + split, bot_len);
-                    bot[bot_len] = '\0';
-                    int ty0 = y + (cell - 16) / 2;
-                    int tx_top = x + (cell - top_len * 8) / 2;
-                    int tx_bot = x + (cell - bot_len * 8) / 2;
-                    display_draw_string(tx_top, ty0, top, 1, fg, bg, true);
-                    display_draw_string(tx_bot, ty0 + 8, bot, 1, fg, bg, true);
-                    continue;
-                }
-            }
-
-            /* 4. Hard-condensed single line (last resort). */
-            {
-                int cw = avail_w / fit_len;
+                display_draw_string(tx, ty, lbl, scale, fg, bg, true);
+            } else {
+                int cw = want_w / fit_len;
+                if (cw < 4) cw = 4;                 /* legibility floor */
+                if (cw * fit_len > max_w) cw = max_w / fit_len;
                 if (cw < 1) cw = 1;
                 int ch = 8;
-                if (ch > avail_h) ch = avail_h;
+                if (ch > cell - 2) ch = cell - 2;
                 int tx = x + (cell - lbl_len * cw) / 2;
                 int ty = y + (cell - ch) / 2;
                 display_draw_string_wh(tx, ty, lbl, cw, ch, fg, bg, true);

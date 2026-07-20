@@ -6,10 +6,11 @@
  * We don't depend on LVGL, so the font format is deliberately
  * minimal: one byte per row, MSB = leftmost pixel (the 8x8 base
  * font packs each row LSB-first instead; see font_pixel_8x8).
- * All glyph tables are now derived from Greybeard, a vector /
+ * The 8x8 base font is the public-domain font8x8 (dhepper), kept
+ * because it stays legible when condensed to sub-8px key labels.
+ * The larger UI tables are derived from Greybeard, a vector /
  * bitmap port of Uwe Waldmann's UW ttyp0 (MIT License):
  * https://github.com/flowchartsman/greybeard
- *   - the 8x8 base font is box-downscaled from Greybeard gb-16,
  *   - the 10x20 font is rendered from Greybeard gb-18,
  *   - the 12x16 font is rendered from Greybeard gb-16.
  * Larger pixel sizes are produced by integer-scaling each glyph

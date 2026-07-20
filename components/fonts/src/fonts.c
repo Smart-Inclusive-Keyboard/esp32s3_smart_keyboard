@@ -1,6 +1,9 @@
 /*
  * Font lookup wrapper around the embedded bitmap glyph tables.
- * All tables (8x8, 10x20, 12x16) are derived from Greybeard, a
+ * The 8x8 table is the public-domain font8x8 (kept verbatim from
+ * http://github.com/dhepper/font8x8) -- it stays crisp when the
+ * multi-character key labels are condensed to sub-8px cells. The
+ * larger 10x20 and 12x16 tables are derived from Greybeard, a
  * vector / bitmap port of Uwe Waldmann's UW ttyp0 (MIT License):
  * https://github.com/flowchartsman/greybeard
  */
@@ -14,8 +17,8 @@
 #include "font12x16_cyrillic.h"
 
 static const uint8_t s_fallback[8] = {
-    /* '?' if out of range -- Greybeard gb-16 glyph downscaled to 8x8 */
-    0x00, 0x7E, 0x42, 0x30, 0x08, 0x08, 0x00, 0x00,
+    /* '?' if out of range */
+    0x3C, 0x66, 0x60, 0x30, 0x18, 0x00, 0x18, 0x00,
 };
 
 static const uint8_t s_fallback_10x20[40] = {
