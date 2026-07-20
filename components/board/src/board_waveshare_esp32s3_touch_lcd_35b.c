@@ -53,6 +53,7 @@ const board_t g_board = {
         .d1  = 2,
         .d2  = 3,
         .d3  = 4,
+        .dc  = -1,    /* QSPI panel: no separate D/C line */
         .rst = -1,    /* on the TCA9554 I/O expander, not a GPIO */
         .te  = -1,    /* TE not wired on this board */
         .bl  = 6,

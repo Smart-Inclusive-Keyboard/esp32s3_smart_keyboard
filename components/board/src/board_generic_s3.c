@@ -13,7 +13,7 @@ const board_t g_board = {
     .display_type = BOARD_DISPLAY_NONE,
     .display = {
         .cs = -1, .sck = -1, .d0 = -1, .d1 = -1, .d2 = -1, .d3 = -1,
-        .rst = -1, .te = -1, .bl = -1, .bl_active_low = false,
+        .dc = -1, .rst = -1, .te = -1, .bl = -1, .bl_active_low = false,
         .width = 320, .height = 240, .swap_xy = false,
     },
     .gamepad_uart = {

@@ -73,6 +73,7 @@ void display_register_backend(uint16_t *fb, int w, int h,
 /* ----- Backend selection ----- */
 
 void display_axs15231b_init(void);  /* implemented in display_axs15231b.c */
+void display_ili9341_init(void);    /* implemented in display_ili9341.c */
 
 void display_init(void)
 {
@@ -84,6 +85,13 @@ void display_init(void)
         display_axs15231b_init();
 #else
         ESP_LOGE(TAG, "AXS15231B selected but driver not built in");
+#endif
+        break;
+    case BOARD_DISPLAY_ILI9341:
+#if CONFIG_BOARD_HAS_DISPLAY_ILI9341
+        display_ili9341_init();
+#else
+        ESP_LOGE(TAG, "ILI9341 selected but driver not built in");
 #endif
         break;
     case BOARD_DISPLAY_NONE:
@@ -156,6 +164,36 @@ void display_draw_string(int x, int y, const char *s, int scale,
     }
 }
 
+void display_draw_char_wh(int x, int y, char c, int cw, int ch,
+                          uint16_t fg, uint16_t bg, bool transparent)
+{
+    if (cw < 1) cw = 1;
+    if (ch < 1) ch = 1;
+    for (int py = 0; py < ch; ++py) {
+        /* Nearest-neighbour map the target row back onto one of the
+         * 8 source rows; the same for columns below. */
+        int row = py * FONT_BASE_H / ch;
+        for (int px = 0; px < cw; ++px) {
+            int col = px * FONT_BASE_W / cw;
+            if (font_pixel_8x8(c, col, row)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_string_wh(int x, int y, const char *s, int cw, int ch,
+                            uint16_t fg, uint16_t bg, bool transparent)
+{
+    if (!s) return;
+    for (int i = 0; s[i] != '\0'; ++i) {
+        display_draw_char_wh(x + i * cw, y, s[i], cw, ch,
+                             fg, bg, transparent);
+    }
+}
+
 void display_draw_char_10x20(int x, int y, char c,
                              uint16_t fg, uint16_t bg, bool transparent)
 {
@@ -187,6 +225,67 @@ void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
     for (int py = 0; py < FONT10X20_H; ++py) {
         for (int px = 0; px < FONT10X20_W; ++px) {
             if (font_pixel_in_10x20(g, px, py)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_glyph_10x20_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent)
+{
+    if (cw < 1) cw = 1;
+    if (ch < 1) ch = 1;
+    const uint8_t *g = font_glyph_10x20_cp(cp);
+    for (int py = 0; py < ch; ++py) {
+        /* Nearest-neighbour map the target row/col back onto the
+         * native 10x20 source grid. */
+        int row = py * FONT10X20_H / ch;
+        for (int px = 0; px < cw; ++px) {
+            int col = px * FONT10X20_W / cw;
+            if (font_pixel_in_10x20(g, col, row)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_glyph_12x16_cp(int x, int y, uint32_t cp,
+                                 uint16_t fg, uint16_t bg, bool transparent)
+{
+    const uint8_t *g = font_glyph_12x16_cp(cp);
+    for (int py = 0; py < FONT12X16_H; ++py) {
+        for (int px = 0; px < FONT12X16_W; ++px) {
+            if (font_pixel_in_12x16(g, px, py)) {
+                display_set_pixel(x + px, y + py, fg);
+            } else if (!transparent) {
+                display_set_pixel(x + px, y + py, bg);
+            }
+        }
+    }
+}
+
+void display_draw_glyph_12x16_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent)
+{
+    if (cw < 1) cw = 1;
+    if (ch < 1) ch = 1;
+    const uint8_t *g = font_glyph_12x16_cp(cp);
+    for (int py = 0; py < ch; ++py) {
+        /* Nearest-neighbour map the target row/col back onto the
+         * native 12x16 source grid. */
+        int row = py * FONT12X16_H / ch;
+        for (int px = 0; px < cw; ++px) {
+            int col = px * FONT12X16_W / cw;
+            if (font_pixel_in_12x16(g, col, row)) {
                 display_set_pixel(x + px, y + py, fg);
             } else if (!transparent) {
                 display_set_pixel(x + px, y + py, bg);

@@ -14,9 +14,11 @@ optional narrator speaks each letter as the user navigates.
 ## Status
 
 Work in progress. The default supported board is the
+**Freenove FNK0104A** (2.8" 240x320 ILI9341 SPI panel, NonTouch,
+ESP32-S3 with PSRAM, on-board ES8311 codec + speaker). The
 **Waveshare ESP32-S3-Touch-LCD-3.5B** (320x480 IPS, AXS15231B
-QSPI controller, ESP32-S3 + 16 MB flash + 8 MB octal PSRAM).
-Additional boards plug in via Kconfig.
+QSPI controller, ESP32-S3 + 16 MB flash + 8 MB octal PSRAM) is
+also supported. Additional boards plug in via Kconfig.
 
 ## Quick start
 
@@ -36,7 +38,7 @@ managed components).
 main/                  app entry, splash, task wiring
 components/
   board/               per-board pin / capability HAL (board.h)
-  display/             AXS15231B framebuffer + draw API
+  display/             AXS15231B (QSPI) + ILI9341 (SPI) framebuffer + draw API
   fonts/               embedded bitmap fonts (8x16, 16x32)
   theme/               color palette table (default: green on black)
   kb_layout/           keyboard layouts (US default; DE / FR / UA stubs)

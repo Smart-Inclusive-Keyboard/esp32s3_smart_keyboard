@@ -5,7 +5,9 @@ All build-time options live under
 
 ## Board selection
 
-`SK_BOARD_*` -- exactly one. Selecting a board automatically
+`SK_BOARD_*` -- exactly one. The default is
+`SK_BOARD_FREENOVE_FNK0104A` (Freenove 2.8" ILI9341, NonTouch).
+Selecting a board automatically
 "selects" the capability symbols that gate optional components:
 
 | Symbol                       | Meaning                                |
@@ -13,13 +15,23 @@ All build-time options live under
 | `BOARD_HAS_PSRAM`            | Component code may allocate from PSRAM |
 | `BOARD_HAS_DISPLAY`          | Some panel driver is configured        |
 | `BOARD_HAS_DISPLAY_AXS15231B`| Build the AXS15231B QSPI backend       |
+| `BOARD_HAS_DISPLAY_ILI9341`  | Build the ILI9341 SPI backend          |
 | `BOARD_HAS_SPEAKER`          | I2S DAC wired -> compile in audio +    |
 |                              | narrator                               |
+| `BOARD_HAS_TOUCH`           | Capacitive touch overlay wired         |
 | `BOARD_HAS_BATTERY`          | VBAT exposed -> battery indicator      |
 
 The Audio / Narrator menu is **hidden** unless `BOARD_HAS_PSRAM`
 and `BOARD_HAS_SPEAKER` are both set, because narration requires
 both to be useful.
+
+## Display
+
+`SK_DISPLAY_BACKLIGHT_PERCENT` (0..100) sets the panel backlight
+brightness applied at boot, as a percentage of full brightness.
+Boards with a controllable (LEDC PWM) backlight honour it; boards
+without one ignore it. The default is tuned per board: 80% for the
+Waveshare 3.5B and 50% for the Freenove FNK0104A.
 
 ## Gamepad transport
 
@@ -43,6 +55,12 @@ feed a transport-agnostic `input_router`.
 Each RX pin is connected to a gamepad's TX line; no TX / RTS /
 CTS pin is driven. The two gamepads must use different UART ports.
 Set a gamepad's `*_UART_RX_GPIO` to -1 to disable it.
+
+> **Note:** On the Freenove FNK0104A board the gamepad RX pins are
+> hard-coded to GPIO 2 (gamepad 1) and GPIO 3 (gamepad 2) in the
+> board file, so the `SK_GAMEPAD*_UART_RX_GPIO` options above have
+> no effect for that board. The UART port and baud options still
+> apply.
 `SK_GAMEPAD_AXIS_DEADZONE` is shared by both gamepads and applied
 to the signed 16-bit analog axes carried in the report. See
 [HARDWARE.md](HARDWARE.md) for the wire format and button map.

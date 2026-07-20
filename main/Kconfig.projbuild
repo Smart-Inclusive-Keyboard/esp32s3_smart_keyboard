@@ -10,13 +10,31 @@ menu "SMART KEYBOARD"
 
 choice SK_BOARD
     prompt "Target board"
-    default SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
+    default SK_BOARD_FREENOVE_FNK0104A
     help
         Selects the hardware board the firmware is built for.
         The board choice determines pin assignments, display
         controller, presence of speaker, and
         which capability flags are exposed to the rest of the
         firmware.
+
+config SK_BOARD_FREENOVE_FNK0104A
+    bool "Freenove FNK0104A (2.8\" ILI9341, NonTouch)"
+    depends on IDF_TARGET_ESP32S3
+    select BOARD_HAS_PSRAM
+    select BOARD_HAS_DISPLAY
+    select BOARD_HAS_DISPLAY_ILI9341
+    select BOARD_HAS_SPEAKER
+    select BOARD_HAS_CODEC_ES8311
+    help
+        Freenove ESP32-S3 2.8" display board (FNK0104A) with a
+        240x320 ILI9341 SPI panel exposed as 320x240 landscape.
+        No touchscreen. Includes an on-board I2S speaker driven by
+        an ES8311 codec (MCLK=4, BCLK=5, LRCK=7, DOUT=8;
+        codec I2C SDA=16, SCL=15, PA enable=1) which is wired up
+        automatically for the narrator. The two external gamepads
+        stream HID reports into receive-only UARTs on GPIO 2 and
+        GPIO 3.
 
 config SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
     bool "Waveshare ESP32-S3-Touch-LCD-3.5B"
@@ -69,6 +87,10 @@ config BOARD_HAS_DISPLAY_AXS15231B
     bool
     default n
 
+config BOARD_HAS_DISPLAY_ILI9341
+    bool
+    default n
+
 config BOARD_HAS_SPEAKER
     bool
     default n
@@ -84,6 +106,27 @@ config BOARD_HAS_TOUCH
 config BOARD_HAS_BATTERY
     bool
     default n
+
+#
+# Display options.
+#
+
+menu "Display"
+
+config SK_DISPLAY_BACKLIGHT_PERCENT
+    int "Backlight brightness (percent)"
+    range 0 100
+    default 80 if SK_BOARD_WAVESHARE_ESP32S3_TOUCH_LCD_35B
+    default 50 if SK_BOARD_FREENOVE_FNK0104A
+    default 80
+    help
+        Panel backlight brightness applied at boot, as a percentage
+        of full brightness (0 = off, 100 = maximum). Boards with a
+        controllable backlight (LEDC PWM) honour this value; boards
+        without one ignore it. The default is tuned per board
+        (80% for the Waveshare 3.5B, 50% for the Freenove FNK0104A).
+
+endmenu  # Display
 
 #
 # External gamepads. Each gamepad is a separate board that streams

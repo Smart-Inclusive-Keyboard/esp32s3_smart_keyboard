@@ -58,6 +58,22 @@ void display_draw_char(int x, int y, char c, int scale,
 void display_draw_string(int x, int y, const char *s, int scale,
                          uint16_t fg, uint16_t bg, bool transparent);
 
+/* Draw an 8x8 ASCII glyph nearest-neighbour scaled to an arbitrary
+ * width x height box (in pixels). Unlike display_draw_char(), which
+ * only supports integer up-scaling, this can also SHRINK the glyph
+ * below its native 8x8 size, which is used to squeeze multi-letter
+ * key labels (Esc, Caps, Bksp, ...) into small cells on low-resolution
+ * panels. `cw` / `ch` must be >= 1. */
+void display_draw_char_wh(int x, int y, char c, int cw, int ch,
+                          uint16_t fg, uint16_t bg, bool transparent);
+
+/* Draw a null-terminated ASCII string whose glyphs are each rendered
+ * `cw` pixels wide and `ch` pixels tall (nearest-neighbour scaled from
+ * the 8x8 font), advancing by `cw` pixels per character. Lets a caller
+ * fit a short label into a fixed pixel width regardless of its length. */
+void display_draw_string_wh(int x, int y, const char *s, int cw, int ch,
+                            uint16_t fg, uint16_t bg, bool transparent);
+
 /* Higher-resolution 10x20 variants for single-letter key labels.
  * Glyphs are drawn at their native 10x20 size (no scaling); the
  * extra source-pixel density gives noticeably smoother edges than
@@ -73,6 +89,33 @@ void display_draw_string_10x20(int x, int y, const char *s,
  * as display_draw_char_10x20(); unknown codepoints render '?'. */
 void display_draw_glyph_10x20_cp(int x, int y, uint32_t cp,
                                  uint16_t fg, uint16_t bg, bool transparent);
+
+/* Draw a 10x20 codepoint glyph nearest-neighbour scaled to an
+ * arbitrary width x height box (in pixels). Like
+ * display_draw_glyph_10x20_cp() but can shrink the glyph below its
+ * native 10x20 size, used to fit non-ASCII single-letter key labels
+ * (e.g. the Cyrillic glyphs of the Ukrainian layout) into small
+ * cells on low-resolution panels. `cw` / `ch` must be >= 1. */
+void display_draw_glyph_10x20_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent);
+
+/* Draw a single 12x16 glyph identified by Unicode codepoint. This
+ * smaller UI font carries only the Cyrillic glyphs and is used on
+ * low-resolution 320x240 panels, where the 10x20 glyph does not fit
+ * a key cell and downscaling it looks poor. Unknown codepoints
+ * render '?'. */
+void display_draw_glyph_12x16_cp(int x, int y, uint32_t cp,
+                                 uint16_t fg, uint16_t bg, bool transparent);
+
+/* Draw a 12x16 codepoint glyph nearest-neighbour scaled to an
+ * arbitrary width x height box (in pixels), for cells too small even
+ * for the native 12x16 glyph. `cw` / `ch` must be >= 1. */
+void display_draw_glyph_12x16_cp_wh(int x, int y, uint32_t cp,
+                                    int cw, int ch,
+                                    uint16_t fg, uint16_t bg,
+                                    bool transparent);
 
 /* Push the framebuffer's dirty bounding box to the panel. The
  * backend internally tracks the bbox; pixel-setting calls expand
